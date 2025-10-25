@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bài 8 - Bảo mật mạng trong lập trình (SSL/TLS, mã hóa) - Blog cá nhân - Trần Hữu Nhật</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="is-blog">
+
+  
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+/>
+
+<header>
+  <nav>
+    <a href="/"><i class="fas fa-home"></i> Home</a>
+    <a href="/blog/"><i class="fas fa-book"></i> Bài viết</a>
+    <a href="/about/"><i class="fas fa-user"></i> Giới thiệu</a>
+    
+    <button id="theme-toggle" aria-label="Chuyển đổi giao diện">
+      <i id="theme-icon" class="fas fa-sun"></i> Theme
+    </button>
+    
+    <button id="search-toggle" aria-label="Tìm kiếm">
+      <i class="fas fa-search"></i> Tìm kiếm
+    </button>
+  </nav>
+  
+  
+  <div id="search-overlay" class="search-overlay">
+    <div class="search-container">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Tìm kiếm bài viết, tag..." autocomplete="off">
+        <button id="search-close" aria-label="Đóng tìm kiếm">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="search-results" class="search-results"></div>
+    </div>
+  </div>
+</header>
+
+<script>
+  const toggleBtn = document.getElementById("theme-toggle");
+  const icon = document.getElementById("theme-icon");
+
+  
+  if (localStorage.getItem("theme") === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+    icon.classList.replace("fa-sun", "fa-moon");
+  }
+
+  
+  toggleBtn.addEventListener("click", () => {
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    const isDark = currentTheme === "dark";
+
+    document.documentElement.setAttribute("data-theme", isDark ? "light" : "dark");
+    localStorage.setItem("theme", isDark ? "light" : "dark");
+
+    
+    if (isDark) {
+      
+      icon.classList.replace("fa-moon", "fa-sun");
+    } else {
+      
+      icon.classList.replace("fa-sun", "fa-moon");
+    }
+  });
+
+  
+  
+  
+  const searchToggle = document.getElementById('search-toggle');
+  const searchOverlay = document.getElementById('search-overlay');
+  const searchContainer = document.querySelector('.search-container');
+  const searchInput = document.getElementById('search-input');
+  const searchClose = document.getElementById('search-close');
+  const searchResults = document.getElementById('search-results');
+
+  
+  searchToggle.addEventListener('click', () => {
+    searchOverlay.classList.add('show');
+    searchInput.focus();
+  });
+
+  
+  searchClose.addEventListener('click', () => {
+    searchOverlay.classList.remove('show');
+    searchInput.value = '';
+    searchResults.innerHTML = '';
+  });
+
+  
+  document.addEventListener('click', (e) => {
+    if (!searchOverlay.contains(e.target) && !searchToggle.contains(e.target)) {
+      searchOverlay.classList.remove('show');
+      searchInput.value = '';
+      searchResults.innerHTML = '';
+    }
+  });
+
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && searchOverlay.classList.contains('show')) {
+      searchOverlay.classList.remove('show');
+      searchInput.value = '';
+      searchResults.innerHTML = '';
+    }
+  });
+
+  
+  const searchData = [
+    {
+      title: "Giới thiệu ngôn ngữ Java",
+      url: "/blog/java-gioi-thieu/",
+      excerpt: "Java là một ngôn ngữ lập trình hướng đối tượng (OOP) mạnh mẽ, được phát triển bởi Sun Microsystems (nay thuộc Oracle) vào năm 1995. Đây là ngôn ngữ lập trình có khẩu hiệu nổi tiếng: 'Write once, run anywhere' – Viết một lần, chạy ở mọi nơi.",
+      tags: ["Java", "Programming", "OOP", "JVM"]
+    },
+    {
+      title: "Hướng dẫn lập trình Python",
+      url: "/blog/python-tutorial/",
+      excerpt: "Python là ngôn ngữ lập trình đơn giản, dễ học và mạnh mẽ. Python được sử dụng rộng rãi trong nhiều lĩnh vực như web development, data science, AI/ML...",
+      tags: ["Python", "Tutorial", "Programming", "Web Development"]
+    },
+    {
+      title: "JavaScript cơ bản",
+      url: "/blog/javascript-basics/",
+      excerpt: "JavaScript là ngôn ngữ lập trình phía client, được sử dụng rộng rãi trong web development. JavaScript giúp tạo ra các trang web tương tác và động...",
+      tags: ["JavaScript", "Web", "Frontend", "DOM"]
+    },
+    {
+      title: "React.js từ cơ bản đến nâng cao",
+      url: "/blog/react-tutorial/",
+      excerpt: "React là một thư viện JavaScript phổ biến để xây dựng giao diện người dùng, đặc biệt là các ứng dụng web đơn trang (SPA)...",
+      tags: ["React", "JavaScript", "Frontend", "SPA"]
+    },
+    {
+      title: "Node.js và Express.js",
+      url: "/blog/nodejs-express/",
+      excerpt: "Node.js cho phép chạy JavaScript trên server-side, kết hợp với Express.js framework để xây dựng các ứng dụng web và API...",
+      tags: ["Node.js", "Express", "Backend", "API"]
+    }
+  ];
+
+  
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    
+    if (query.length < 2) {
+      searchResults.innerHTML = '';
+      return;
+    }
+
+    const results = searchData.filter(item => {
+      const titleMatch = item.title.toLowerCase().includes(query);
+      const excerptMatch = item.excerpt.toLowerCase().includes(query);
+      const tagMatch = item.tags.some(tag => tag.toLowerCase().includes(query));
+      
+      return titleMatch || excerptMatch || tagMatch;
+    });
+
+    
+    results.sort((a, b) => {
+      const aTitleMatch = a.title.toLowerCase().includes(query);
+      const bTitleMatch = b.title.toLowerCase().includes(query);
+      
+      if (aTitleMatch && !bTitleMatch) return -1;
+      if (!aTitleMatch && bTitleMatch) return 1;
+      return 0;
+    });
+
+    displaySearchResults(results, query);
+  });
+
+  
+  function displaySearchResults(results, query) {
+    if (results.length === 0) {
+      searchResults.innerHTML = `
+        <div class="search-no-results">
+          <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+          <p>Không tìm thấy kết quả nào cho "<strong>${query}</strong>"</p>
+          <p style="font-size: 0.9rem; margin-top: 0.5rem;">Thử tìm kiếm với từ khóa khác</p>
+        </div>
+      `;
+      return;
+    }
+
+    const resultsHTML = results.map(item => `
+      <div class="search-result-item" onclick="window.location.href='${item.url}'">
+        <div class="search-result-title">${highlightText(item.title, query)}</div>
+        <div class="search-result-excerpt">${highlightText(item.excerpt.substring(0, 150) + '...', query)}</div>
+        <div class="search-result-tags">
+          ${item.tags.map(tag => `<span class="search-result-tag">${tag}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    searchResults.innerHTML = resultsHTML;
+  }
+
+  
+  function highlightText(text, query) {
+    if (!query) return text;
+    const regex = new RegExp(`(${query})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+  }
+</script>
+
+
+  <main class="container">
+    
+    <article>
+    <h1>Bài 8 - Bảo mật mạng trong lập trình (SSL/TLS, mã hóa)</h1>
+    <p class="post-meta"><i>Đăng ngày 21/10/2025 lúc 00:00</i></p>
+    <h2 id="1-giới-thiệu">1. Giới thiệu</h2>
+<p>Trong lập trình mạng, <strong>bảo mật</strong> là yếu tố then chốt giúp đảm bảo:</p>
+<ul>
+<li><strong>Tính bí mật (Confidentiality):</strong> Dữ liệu không bị đọc lén.</li>
+<li><strong>Tính toàn vẹn (Integrity):</strong> Dữ liệu không bị thay đổi.</li>
+<li><strong>Xác thực (Authentication):</strong> Đảm bảo danh tính của các bên giao tiếp.</li>
+<li><strong>Không chối bỏ (Non-repudiation):</strong> Người gửi không thể phủ nhận đã gửi dữ liệu.</li>
+</ul>
+<p>Các cơ chế phổ biến:</p>
+<ul>
+<li><strong>SSL/TLS</strong>: Bảo mật đường truyền.</li>
+<li><strong>Mã hóa (Encryption)</strong>: Bảo vệ dữ liệu.</li>
+<li><strong>Chữ ký số (Digital Signature)</strong> và <strong>Chứng chỉ số (Certificate)</strong>: Xác thực danh tính.</li>
+</ul>
+<hr>
+<h2 id="2-ssltls-là-gì">2. SSL/TLS là gì?</h2>
+<p><strong>SSL (Secure Socket Layer)</strong> và <strong>TLS (Transport Layer Security)</strong> là giao thức mã hóa cho phép truyền dữ liệu an toàn giữa client và server qua Internet.<br>
+TLS là phiên bản nâng cấp và bảo mật hơn của SSL.</p>
+<p>Khi bạn truy cập một website có tiền tố <code>https://</code>, nghĩa là kết nối đang sử dụng SSL/TLS.</p>
+<hr>
+<h2 id="3-quy-trình-bắt-tay-tls-tls-handshake">3. Quy trình bắt tay TLS (TLS Handshake)</h2>
+<p>Khi client kết nối với server (qua HTTPS, SSL socket&hellip;), quy trình như sau:</p>
+<pre tabindex="0"><code>Client ----&gt; Server : ClientHello (phiên bản, mã hóa hỗ trợ)
+Server ----&gt; Client : ServerHello (chọn thuật toán mã hóa, gửi chứng chỉ)
+Client ----&gt; Server : Kiểm tra chứng chỉ, tạo khóa phiên (session key)
+Server ----&gt; Client : Xác nhận, bắt đầu truyền dữ liệu an toàn
+</code></pre><p>Kết quả:<br>
+Hai bên chia sẻ <strong>khóa phiên bí mật</strong> để mã hóa/giải mã dữ liệu.</p>
+<hr>
+<h2 id="4-mã-hóa-dữ-liệu">4. Mã hóa dữ liệu</h2>
+<h3 id="41-mã-hóa-đối-xứng-symmetric-encryption">4.1. Mã hóa đối xứng (Symmetric Encryption)</h3>
+<ul>
+<li>Dùng <strong>cùng một khóa</strong> cho mã hóa và giải mã.</li>
+<li>Nhanh nhưng khó phân phối khóa an toàn.</li>
+<li>Thuật toán phổ biến: <strong>AES</strong>, <strong>DES</strong>.</li>
+</ul>
+<h3 id="42-mã-hóa-bất-đối-xứng-asymmetric-encryption">4.2. Mã hóa bất đối xứng (Asymmetric Encryption)</h3>
+<ul>
+<li>Dùng <strong>cặp khóa</strong>: khóa công khai (public key) và khóa bí mật (private key).</li>
+<li>Dữ liệu mã hóa bằng khóa công khai chỉ giải mã được bằng khóa bí mật.</li>
+<li>Thuật toán phổ biến: <strong>RSA</strong>, <strong>ECC</strong>.</li>
+</ul>
+<h3 id="43-kết-hợp">4.3. Kết hợp</h3>
+<ul>
+<li>TLS thường dùng RSA/ECC để trao đổi khóa, rồi dùng AES để truyền dữ liệu (kết hợp hiệu suất và bảo mật).</li>
+</ul>
+<hr>
+<h2 id="5-chứng-chỉ-số-digital-certificate">5. Chứng chỉ số (Digital Certificate)</h2>
+<p>Chứng chỉ số chứa:</p>
+<ul>
+<li>Tên tổ chức/cá nhân sở hữu.</li>
+<li>Khóa công khai (public key).</li>
+<li>Chữ ký số của tổ chức chứng thực (CA – Certificate Authority).</li>
+</ul>
+<p>Khi trình duyệt hoặc ứng dụng kiểm tra chứng chỉ hợp lệ, nó tin rằng server là “thật”.</p>
+<p>Ví dụ: Let’s Encrypt, DigiCert, GlobalSign&hellip;</p>
+<hr>
+<h2 id="6-tạo-kết-nối-ssl-trong-java">6. Tạo kết nối SSL trong Java</h2>
+<h3 id="a-server-ssl-đơn-giản">a. Server SSL đơn giản</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">import</span> javax.net.ssl.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.io.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.security.KeyStore;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SSLServer</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) <span style="color:#66d9ef">throws</span> Exception {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// Tải keystore (chứa khóa bí mật và chứng chỉ)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">char</span><span style="color:#f92672">[]</span> password <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;123456&#34;</span>.<span style="color:#a6e22e">toCharArray</span>();
+</span></span><span style="display:flex;"><span>        KeyStore ks <span style="color:#f92672">=</span> KeyStore.<span style="color:#a6e22e">getInstance</span>(<span style="color:#e6db74">&#34;JKS&#34;</span>);
+</span></span><span style="display:flex;"><span>        ks.<span style="color:#a6e22e">load</span>(<span style="color:#66d9ef">new</span> FileInputStream(<span style="color:#e6db74">&#34;serverkeystore.jks&#34;</span>), password);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        KeyManagerFactory kmf <span style="color:#f92672">=</span> KeyManagerFactory.<span style="color:#a6e22e">getInstance</span>(<span style="color:#e6db74">&#34;SunX509&#34;</span>);
+</span></span><span style="display:flex;"><span>        kmf.<span style="color:#a6e22e">init</span>(ks, password);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        SSLContext sc <span style="color:#f92672">=</span> SSLContext.<span style="color:#a6e22e">getInstance</span>(<span style="color:#e6db74">&#34;TLS&#34;</span>);
+</span></span><span style="display:flex;"><span>        sc.<span style="color:#a6e22e">init</span>(kmf.<span style="color:#a6e22e">getKeyManagers</span>(), <span style="color:#66d9ef">null</span>, <span style="color:#66d9ef">null</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        SSLServerSocketFactory ssf <span style="color:#f92672">=</span> sc.<span style="color:#a6e22e">getServerSocketFactory</span>();
+</span></span><span style="display:flex;"><span>        SSLServerSocket serverSocket <span style="color:#f92672">=</span> (SSLServerSocket) ssf.<span style="color:#a6e22e">createServerSocket</span>(8443);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;SSL Server đang chạy trên cổng 8443...&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span> (<span style="color:#66d9ef">true</span>) {
+</span></span><span style="display:flex;"><span>            SSLSocket socket <span style="color:#f92672">=</span> (SSLSocket) serverSocket.<span style="color:#a6e22e">accept</span>();
+</span></span><span style="display:flex;"><span>            BufferedReader in <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> BufferedReader(<span style="color:#66d9ef">new</span> InputStreamReader(socket.<span style="color:#a6e22e">getInputStream</span>()));
+</span></span><span style="display:flex;"><span>            PrintWriter out <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> PrintWriter(socket.<span style="color:#a6e22e">getOutputStream</span>(), <span style="color:#66d9ef">true</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            String msg <span style="color:#f92672">=</span> in.<span style="color:#a6e22e">readLine</span>();
+</span></span><span style="display:flex;"><span>            System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Client gửi: &#34;</span> <span style="color:#f92672">+</span> msg);
+</span></span><span style="display:flex;"><span>            out.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Server đã nhận qua SSL: &#34;</span> <span style="color:#f92672">+</span> msg);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="b-client-ssl">b. Client SSL</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">import</span> javax.net.ssl.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.io.*;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SSLClient</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) <span style="color:#66d9ef">throws</span> Exception {
+</span></span><span style="display:flex;"><span>        SSLSocketFactory ssf <span style="color:#f92672">=</span> (SSLSocketFactory) SSLSocketFactory.<span style="color:#a6e22e">getDefault</span>();
+</span></span><span style="display:flex;"><span>        SSLSocket socket <span style="color:#f92672">=</span> (SSLSocket) ssf.<span style="color:#a6e22e">createSocket</span>(<span style="color:#e6db74">&#34;localhost&#34;</span>, 8443);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        BufferedReader in <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> BufferedReader(<span style="color:#66d9ef">new</span> InputStreamReader(socket.<span style="color:#a6e22e">getInputStream</span>()));
+</span></span><span style="display:flex;"><span>        PrintWriter out <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> PrintWriter(socket.<span style="color:#a6e22e">getOutputStream</span>(), <span style="color:#66d9ef">true</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        out.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Xin chào Server an toàn!&#34;</span>);
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Phản hồi: &#34;</span> <span style="color:#f92672">+</span> in.<span style="color:#a6e22e">readLine</span>());
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        socket.<span style="color:#a6e22e">close</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="c-tạo-keystore-chứng-chỉ-thử-nghiệm">c. Tạo keystore (chứng chỉ thử nghiệm)</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>keytool -genkeypair -alias serverkey -keyalg RSA -keystore serverkeystore.jks -keysize <span style="color:#ae81ff">2048</span>
+</span></span></code></pre></div><hr>
+<h2 id="7-ví-dụ-mã-hóa-dữ-liệu-bằng-aes">7. Ví dụ mã hóa dữ liệu bằng AES</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">import</span> javax.crypto.Cipher;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> javax.crypto.KeyGenerator;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> javax.crypto.SecretKey;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.util.Base64;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AESCrypto</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) <span style="color:#66d9ef">throws</span> Exception {
+</span></span><span style="display:flex;"><span>        KeyGenerator keyGen <span style="color:#f92672">=</span> KeyGenerator.<span style="color:#a6e22e">getInstance</span>(<span style="color:#e6db74">&#34;AES&#34;</span>);
+</span></span><span style="display:flex;"><span>        keyGen.<span style="color:#a6e22e">init</span>(128);
+</span></span><span style="display:flex;"><span>        SecretKey key <span style="color:#f92672">=</span> keyGen.<span style="color:#a6e22e">generateKey</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        String data <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;Hello Secure World!&#34;</span>;
+</span></span><span style="display:flex;"><span>        Cipher cipher <span style="color:#f92672">=</span> Cipher.<span style="color:#a6e22e">getInstance</span>(<span style="color:#e6db74">&#34;AES&#34;</span>);
+</span></span><span style="display:flex;"><span>        cipher.<span style="color:#a6e22e">init</span>(Cipher.<span style="color:#a6e22e">ENCRYPT_MODE</span>, key);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> encrypted <span style="color:#f92672">=</span> cipher.<span style="color:#a6e22e">doFinal</span>(data.<span style="color:#a6e22e">getBytes</span>());
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Dữ liệu mã hóa: &#34;</span> <span style="color:#f92672">+</span> Base64.<span style="color:#a6e22e">getEncoder</span>().<span style="color:#a6e22e">encodeToString</span>(encrypted));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        cipher.<span style="color:#a6e22e">init</span>(Cipher.<span style="color:#a6e22e">DECRYPT_MODE</span>, key);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> decrypted <span style="color:#f92672">=</span> cipher.<span style="color:#a6e22e">doFinal</span>(encrypted);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Giải mã: &#34;</span> <span style="color:#f92672">+</span> <span style="color:#66d9ef">new</span> String(decrypted));
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Kết quả:</p>
+<pre tabindex="0"><code>Dữ liệu mã hóa: xwI4e2R+o1h...
+Giải mã: Hello Secure World!
+</code></pre><hr>
+<h2 id="8-các-phương-pháp-bảo-mật-nâng-cao">8. Các phương pháp bảo mật nâng cao</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Phương pháp</th>
+          <th>Mô tả</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>HMAC</strong></td>
+          <td>Mã xác thực thông điệp, chống giả mạo dữ liệu</td>
+      </tr>
+      <tr>
+          <td><strong>JWT (JSON Web Token)</strong></td>
+          <td>Xác thực người dùng trong REST API</td>
+      </tr>
+      <tr>
+          <td><strong>HTTPS (HTTP + TLS)</strong></td>
+          <td>Bảo mật toàn bộ giao tiếp HTTP</td>
+      </tr>
+      <tr>
+          <td><strong>VPN / SSH Tunnel</strong></td>
+          <td>Tạo kênh truyền mã hóa an toàn</td>
+      </tr>
+      <tr>
+          <td><strong>Firewall &amp; IDS</strong></td>
+          <td>Bảo vệ mạng khỏi tấn công bên ngoài</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="9-thực-hành-bảo-mật-rest-api">9. Thực hành bảo mật REST API</h2>
+<p>Một REST API an toàn thường có:</p>
+<ol>
+<li><strong>HTTPS</strong> – mã hóa toàn bộ dữ liệu.</li>
+<li><strong>Token Authentication (JWT/OAuth2)</strong> – xác thực người dùng.</li>
+<li><strong>Input Validation</strong> – tránh SQL Injection, XSS.</li>
+<li><strong>Rate Limiting</strong> – giới hạn yêu cầu để chống DDoS.</li>
+</ol>
+<p>Ví dụ tiêu đề HTTP:</p>
+<pre tabindex="0"><code>Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6...
+</code></pre><hr>
+<h2 id="10-tóm-tắt">10. Tóm tắt</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Thành phần</th>
+          <th>Mục tiêu</th>
+          <th>Ví dụ</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>SSL/TLS</td>
+          <td>Mã hóa đường truyền</td>
+          <td>HTTPS</td>
+      </tr>
+      <tr>
+          <td>AES</td>
+          <td>Mã hóa đối xứng</td>
+          <td>Bảo mật file, session</td>
+      </tr>
+      <tr>
+          <td>RSA</td>
+          <td>Mã hóa khóa</td>
+          <td>Giao thức TLS</td>
+      </tr>
+      <tr>
+          <td>Certificate</td>
+          <td>Xác thực danh tính</td>
+          <td>server.crt</td>
+      </tr>
+      <tr>
+          <td>JWT</td>
+          <td>Xác thực REST API</td>
+          <td>Token</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="11-kết-luận">11. Kết luận</h2>
+<p>Bảo mật mạng là nền tảng của mọi ứng dụng hiện đại.<br>
+Việc áp dụng <strong>SSL/TLS</strong>, <strong>mã hóa dữ liệu</strong>, và <strong>các chuẩn xác thực an toàn</strong> giúp hệ thống:</p>
+<ul>
+<li>Chống nghe lén và tấn công trung gian (MITM),</li>
+<li>Bảo vệ thông tin người dùng,</li>
+<li>Tăng độ tin cậy và uy tín hệ thống.</li>
+</ul>
+<hr>
+<p>Tác giả: Trần Hữu Nhật<br>
+Học phần: Lập trình mạng cơ bản</p>
+
+    </article>
+    
+  </main>
+
+  <footer>
+  <div class="social-links">
+    <a href="https://www.facebook.com/thn.vintage" target="_blank" aria-label="Facebook">
+      <i class="fab fa-facebook"></i>
+    </a>
+    <a href="https://github.com/TranHuuNhat0806" target="_blank" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  
+  
+  <button id="back-to-top" aria-label="Trở về đầu trang">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+</footer>
+
+
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+/>
+
+<script>
+  
+  const backToTopBtn = document.getElementById('back-to-top');
+  
+  
+  window.addEventListener('scroll', () => {
+    if (window.pageYOffset > 300) {
+      backToTopBtn.classList.add('show');
+    } else {
+      backToTopBtn.classList.remove('show');
+    }
+  });
+  
+  
+  backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  });
+</script>
+
+
+</body>
+</html>

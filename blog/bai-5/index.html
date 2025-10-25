@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bài 5 - Đa luồng (Multithreading) trong lập trình mạng - Blog cá nhân - Trần Hữu Nhật</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="is-blog">
+
+  
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+/>
+
+<header>
+  <nav>
+    <a href="/"><i class="fas fa-home"></i> Home</a>
+    <a href="/blog/"><i class="fas fa-book"></i> Bài viết</a>
+    <a href="/about/"><i class="fas fa-user"></i> Giới thiệu</a>
+    
+    <button id="theme-toggle" aria-label="Chuyển đổi giao diện">
+      <i id="theme-icon" class="fas fa-sun"></i> Theme
+    </button>
+    
+    <button id="search-toggle" aria-label="Tìm kiếm">
+      <i class="fas fa-search"></i> Tìm kiếm
+    </button>
+  </nav>
+  
+  
+  <div id="search-overlay" class="search-overlay">
+    <div class="search-container">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Tìm kiếm bài viết, tag..." autocomplete="off">
+        <button id="search-close" aria-label="Đóng tìm kiếm">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="search-results" class="search-results"></div>
+    </div>
+  </div>
+</header>
+
+<script>
+  const toggleBtn = document.getElementById("theme-toggle");
+  const icon = document.getElementById("theme-icon");
+
+  
+  if (localStorage.getItem("theme") === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+    icon.classList.replace("fa-sun", "fa-moon");
+  }
+
+  
+  toggleBtn.addEventListener("click", () => {
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    const isDark = currentTheme === "dark";
+
+    document.documentElement.setAttribute("data-theme", isDark ? "light" : "dark");
+    localStorage.setItem("theme", isDark ? "light" : "dark");
+
+    
+    if (isDark) {
+      
+      icon.classList.replace("fa-moon", "fa-sun");
+    } else {
+      
+      icon.classList.replace("fa-sun", "fa-moon");
+    }
+  });
+
+  
+  
+  
+  const searchToggle = document.getElementById('search-toggle');
+  const searchOverlay = document.getElementById('search-overlay');
+  const searchContainer = document.querySelector('.search-container');
+  const searchInput = document.getElementById('search-input');
+  const searchClose = document.getElementById('search-close');
+  const searchResults = document.getElementById('search-results');
+
+  
+  searchToggle.addEventListener('click', () => {
+    searchOverlay.classList.add('show');
+    searchInput.focus();
+  });
+
+  
+  searchClose.addEventListener('click', () => {
+    searchOverlay.classList.remove('show');
+    searchInput.value = '';
+    searchResults.innerHTML = '';
+  });
+
+  
+  document.addEventListener('click', (e) => {
+    if (!searchOverlay.contains(e.target) && !searchToggle.contains(e.target)) {
+      searchOverlay.classList.remove('show');
+      searchInput.value = '';
+      searchResults.innerHTML = '';
+    }
+  });
+
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && searchOverlay.classList.contains('show')) {
+      searchOverlay.classList.remove('show');
+      searchInput.value = '';
+      searchResults.innerHTML = '';
+    }
+  });
+
+  
+  const searchData = [
+    {
+      title: "Giới thiệu ngôn ngữ Java",
+      url: "/blog/java-gioi-thieu/",
+      excerpt: "Java là một ngôn ngữ lập trình hướng đối tượng (OOP) mạnh mẽ, được phát triển bởi Sun Microsystems (nay thuộc Oracle) vào năm 1995. Đây là ngôn ngữ lập trình có khẩu hiệu nổi tiếng: 'Write once, run anywhere' – Viết một lần, chạy ở mọi nơi.",
+      tags: ["Java", "Programming", "OOP", "JVM"]
+    },
+    {
+      title: "Hướng dẫn lập trình Python",
+      url: "/blog/python-tutorial/",
+      excerpt: "Python là ngôn ngữ lập trình đơn giản, dễ học và mạnh mẽ. Python được sử dụng rộng rãi trong nhiều lĩnh vực như web development, data science, AI/ML...",
+      tags: ["Python", "Tutorial", "Programming", "Web Development"]
+    },
+    {
+      title: "JavaScript cơ bản",
+      url: "/blog/javascript-basics/",
+      excerpt: "JavaScript là ngôn ngữ lập trình phía client, được sử dụng rộng rãi trong web development. JavaScript giúp tạo ra các trang web tương tác và động...",
+      tags: ["JavaScript", "Web", "Frontend", "DOM"]
+    },
+    {
+      title: "React.js từ cơ bản đến nâng cao",
+      url: "/blog/react-tutorial/",
+      excerpt: "React là một thư viện JavaScript phổ biến để xây dựng giao diện người dùng, đặc biệt là các ứng dụng web đơn trang (SPA)...",
+      tags: ["React", "JavaScript", "Frontend", "SPA"]
+    },
+    {
+      title: "Node.js và Express.js",
+      url: "/blog/nodejs-express/",
+      excerpt: "Node.js cho phép chạy JavaScript trên server-side, kết hợp với Express.js framework để xây dựng các ứng dụng web và API...",
+      tags: ["Node.js", "Express", "Backend", "API"]
+    }
+  ];
+
+  
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    
+    if (query.length < 2) {
+      searchResults.innerHTML = '';
+      return;
+    }
+
+    const results = searchData.filter(item => {
+      const titleMatch = item.title.toLowerCase().includes(query);
+      const excerptMatch = item.excerpt.toLowerCase().includes(query);
+      const tagMatch = item.tags.some(tag => tag.toLowerCase().includes(query));
+      
+      return titleMatch || excerptMatch || tagMatch;
+    });
+
+    
+    results.sort((a, b) => {
+      const aTitleMatch = a.title.toLowerCase().includes(query);
+      const bTitleMatch = b.title.toLowerCase().includes(query);
+      
+      if (aTitleMatch && !bTitleMatch) return -1;
+      if (!aTitleMatch && bTitleMatch) return 1;
+      return 0;
+    });
+
+    displaySearchResults(results, query);
+  });
+
+  
+  function displaySearchResults(results, query) {
+    if (results.length === 0) {
+      searchResults.innerHTML = `
+        <div class="search-no-results">
+          <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+          <p>Không tìm thấy kết quả nào cho "<strong>${query}</strong>"</p>
+          <p style="font-size: 0.9rem; margin-top: 0.5rem;">Thử tìm kiếm với từ khóa khác</p>
+        </div>
+      `;
+      return;
+    }
+
+    const resultsHTML = results.map(item => `
+      <div class="search-result-item" onclick="window.location.href='${item.url}'">
+        <div class="search-result-title">${highlightText(item.title, query)}</div>
+        <div class="search-result-excerpt">${highlightText(item.excerpt.substring(0, 150) + '...', query)}</div>
+        <div class="search-result-tags">
+          ${item.tags.map(tag => `<span class="search-result-tag">${tag}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    searchResults.innerHTML = resultsHTML;
+  }
+
+  
+  function highlightText(text, query) {
+    if (!query) return text;
+    const regex = new RegExp(`(${query})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+  }
+</script>
+
+
+  <main class="container">
+    
+    <article>
+    <h1>Bài 5 - Đa luồng (Multithreading) trong lập trình mạng</h1>
+    <p class="post-meta"><i>Đăng ngày 20/10/2025 lúc 00:00</i></p>
+    <h2 id="1-giới-thiệu-về-đa-luồng-trong-lập-trình-mạng">1. Giới thiệu về đa luồng trong lập trình mạng</h2>
+<p>Trong lập trình mạng, <strong>đa luồng (Multithreading)</strong> cho phép chương trình xử lý <strong>nhiều kết nối cùng lúc</strong>, giúp <strong>tăng hiệu năng</strong> và <strong>độ phản hồi</strong> của server.<br>
+Một <strong>server đơn luồng (single-threaded)</strong> chỉ có thể phục vụ <strong>một client tại một thời điểm</strong>, trong khi <strong>đa luồng</strong> cho phép phục vụ <strong>nhiều client song song</strong>.</p>
+<p>Ví dụ:</p>
+<ul>
+<li>Khi nhiều người truy cập cùng lúc, mỗi kết nối client được xử lý bởi <strong>một luồng riêng biệt (thread)</strong>.</li>
+<li>Nhờ đó, các yêu cầu có thể được thực hiện <strong>đồng thời</strong> mà không bị chặn (blocking).</li>
+</ul>
+<hr>
+<h2 id="2-khái-niệm-về-thread">2. Khái niệm về Thread</h2>
+<p><strong>Thread (luồng)</strong> là đơn vị nhỏ nhất của quá trình xử lý trong một chương trình.<br>
+Một chương trình có thể có nhiều luồng chạy <strong>song song (concurrent)</strong>.</p>
+<h3 id="cấu-trúc-cơ-bản-của-luồng-trong-java">Cấu trúc cơ bản của luồng trong Java</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MyThread</span> <span style="color:#66d9ef">extends</span> Thread {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">run</span>() {
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Luồng đang chạy: &#34;</span> <span style="color:#f92672">+</span> Thread.<span style="color:#a6e22e">currentThread</span>().<span style="color:#a6e22e">getName</span>());
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Main</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) {
+</span></span><span style="display:flex;"><span>        MyThread t1 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> MyThread();
+</span></span><span style="display:flex;"><span>        MyThread t2 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> MyThread();
+</span></span><span style="display:flex;"><span>        t1.<span style="color:#a6e22e">start</span>();
+</span></span><span style="display:flex;"><span>        t2.<span style="color:#a6e22e">start</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="hoặc-sử-dụng-runnable">Hoặc sử dụng <code>Runnable</code>:</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MyTask</span> <span style="color:#66d9ef">implements</span> Runnable {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">run</span>() {
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Thực thi trong luồng: &#34;</span> <span style="color:#f92672">+</span> Thread.<span style="color:#a6e22e">currentThread</span>().<span style="color:#a6e22e">getName</span>());
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Main</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) {
+</span></span><span style="display:flex;"><span>        Thread t1 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Thread(<span style="color:#66d9ef">new</span> MyTask());
+</span></span><span style="display:flex;"><span>        Thread t2 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Thread(<span style="color:#66d9ef">new</span> MyTask());
+</span></span><span style="display:flex;"><span>        t1.<span style="color:#a6e22e">start</span>();
+</span></span><span style="display:flex;"><span>        t2.<span style="color:#a6e22e">start</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="3-tại-sao-cần-đa-luồng-trong-lập-trình-mạng">3. Tại sao cần đa luồng trong lập trình mạng?</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Vấn đề</th>
+          <th>Giải pháp</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Server bị treo khi 1 client gửi yêu cầu chậm</td>
+          <td>Dùng thread riêng cho mỗi client</td>
+      </tr>
+      <tr>
+          <td>Cần xử lý nhiều kết nối đồng thời</td>
+          <td>Tạo nhiều thread chạy song song</td>
+      </tr>
+      <tr>
+          <td>Giảm độ trễ phản hồi</td>
+          <td>Các luồng hoạt động độc lập</td>
+      </tr>
+      <tr>
+          <td>Tận dụng CPU đa nhân</td>
+          <td>Phân luồng giúp tận dụng hiệu năng tốt hơn</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="4-mô-hình-server-đa-luồng-multithreaded-server">4. Mô hình Server đa luồng (Multithreaded Server)</h2>
+<h3 id="quy-trình-hoạt-động">Quy trình hoạt động</h3>
+<ol>
+<li><strong>ServerSocket</strong> lắng nghe kết nối đến.</li>
+<li>Mỗi khi có <strong>client</strong> kết nối, server sẽ:
+<ul>
+<li>Chấp nhận kết nối (<code>accept()</code>)</li>
+<li>Tạo <strong>một luồng mới</strong> để xử lý client đó.</li>
+</ul>
+</li>
+<li>Luồng chính (main thread) <strong>quay lại chờ</strong> kết nối tiếp theo.</li>
+</ol>
+<hr>
+<h2 id="5-ví-dụ-server-đa-luồng-với-tcp">5. Ví dụ: Server đa luồng với TCP</h2>
+<h3 id="file-multithreadedserverjava">File: <code>MultiThreadedServer.java</code></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">import</span> java.io.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.net.*;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ClientHandler</span> <span style="color:#66d9ef">extends</span> Thread {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> Socket socket;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">ClientHandler</span>(Socket socket) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">socket</span> <span style="color:#f92672">=</span> socket;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">run</span>() {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>            BufferedReader input <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> BufferedReader(<span style="color:#66d9ef">new</span> InputStreamReader(socket.<span style="color:#a6e22e">getInputStream</span>()));
+</span></span><span style="display:flex;"><span>            PrintWriter output <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> PrintWriter(socket.<span style="color:#a6e22e">getOutputStream</span>(), <span style="color:#66d9ef">true</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            String message;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">while</span> ((message <span style="color:#f92672">=</span> input.<span style="color:#a6e22e">readLine</span>()) <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span>) {
+</span></span><span style="display:flex;"><span>                System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Nhận từ client &#34;</span> <span style="color:#f92672">+</span> socket.<span style="color:#a6e22e">getPort</span>() <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;: &#34;</span> <span style="color:#f92672">+</span> message);
+</span></span><span style="display:flex;"><span>                output.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Server nhận: &#34;</span> <span style="color:#f92672">+</span> message);
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            socket.<span style="color:#a6e22e">close</span>();
+</span></span><span style="display:flex;"><span>        } <span style="color:#66d9ef">catch</span> (IOException e) {
+</span></span><span style="display:flex;"><span>            System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Lỗi client &#34;</span> <span style="color:#f92672">+</span> socket.<span style="color:#a6e22e">getPort</span>() <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;: &#34;</span> <span style="color:#f92672">+</span> e.<span style="color:#a6e22e">getMessage</span>());
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MultiThreadedServer</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) <span style="color:#66d9ef">throws</span> IOException {
+</span></span><span style="display:flex;"><span>        ServerSocket serverSocket <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ServerSocket(5000);
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Server đa luồng đang lắng nghe...&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span> (<span style="color:#66d9ef">true</span>) {
+</span></span><span style="display:flex;"><span>            Socket socket <span style="color:#f92672">=</span> serverSocket.<span style="color:#a6e22e">accept</span>();
+</span></span><span style="display:flex;"><span>            System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Client mới kết nối: &#34;</span> <span style="color:#f92672">+</span> socket.<span style="color:#a6e22e">getInetAddress</span>());
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">new</span> ClientHandler(socket).<span style="color:#a6e22e">start</span>();
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="file-multiclientjava">File: <code>MultiClient.java</code></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">import</span> java.io.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.net.*;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MultiClient</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) <span style="color:#66d9ef">throws</span> IOException {
+</span></span><span style="display:flex;"><span>        Socket socket <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Socket(<span style="color:#e6db74">&#34;localhost&#34;</span>, 5000);
+</span></span><span style="display:flex;"><span>        BufferedReader input <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> BufferedReader(<span style="color:#66d9ef">new</span> InputStreamReader(System.<span style="color:#a6e22e">in</span>));
+</span></span><span style="display:flex;"><span>        PrintWriter output <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> PrintWriter(socket.<span style="color:#a6e22e">getOutputStream</span>(), <span style="color:#66d9ef">true</span>);
+</span></span><span style="display:flex;"><span>        BufferedReader serverResponse <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> BufferedReader(<span style="color:#66d9ef">new</span> InputStreamReader(socket.<span style="color:#a6e22e">getInputStream</span>()));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Kết nối đến server thành công!&#34;</span>);
+</span></span><span style="display:flex;"><span>        String message;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span> (<span style="color:#66d9ef">true</span>) {
+</span></span><span style="display:flex;"><span>            System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">print</span>(<span style="color:#e6db74">&#34;Nhập tin nhắn: &#34;</span>);
+</span></span><span style="display:flex;"><span>            message <span style="color:#f92672">=</span> input.<span style="color:#a6e22e">readLine</span>();
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> (message.<span style="color:#a6e22e">equalsIgnoreCase</span>(<span style="color:#e6db74">&#34;exit&#34;</span>)) <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>            output.<span style="color:#a6e22e">println</span>(message);
+</span></span><span style="display:flex;"><span>            System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Phản hồi: &#34;</span> <span style="color:#f92672">+</span> serverResponse.<span style="color:#a6e22e">readLine</span>());
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        socket.<span style="color:#a6e22e">close</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="cách-chạy">Cách chạy:</h3>
+<ol>
+<li>Biên dịch:
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>javac MultiThreadedServer.java MultiClient.java
+</span></span></code></pre></div></li>
+<li>Chạy server:
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>java MultiThreadedServer
+</span></span></code></pre></div></li>
+<li>Chạy nhiều client cùng lúc (mỗi terminal 1 client):
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>java MultiClient
+</span></span></code></pre></div></li>
+</ol>
+<hr>
+<h2 id="6-ưu-điểm-và-nhược-điểm-của-đa-luồng">6. Ưu điểm và nhược điểm của đa luồng</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Ưu điểm</th>
+          <th>Mô tả</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Xử lý đồng thời nhiều kết nối</td>
+          <td>Mỗi client được phục vụ riêng biệt</td>
+      </tr>
+      <tr>
+          <td>Nhanh và hiệu quả</td>
+          <td>Không cần chờ từng client hoàn tất</td>
+      </tr>
+      <tr>
+          <td>Tận dụng tài nguyên CPU</td>
+          <td>Đặc biệt hữu ích trên máy nhiều nhân</td>
+      </tr>
+      <tr>
+          <td>Cải thiện trải nghiệm người dùng</td>
+          <td>Phản hồi tức thì, không bị treo</td>
+      </tr>
+  </tbody>
+</table>
+<table>
+  <thead>
+      <tr>
+          <th>Nhược điểm</th>
+          <th>Mô tả</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Tốn tài nguyên bộ nhớ</td>
+          <td>Mỗi luồng cần stack riêng</td>
+      </tr>
+      <tr>
+          <td>Khó quản lý đồng bộ dữ liệu</td>
+          <td>Cần cẩn trọng khi chia sẻ biến giữa các luồng</td>
+      </tr>
+      <tr>
+          <td>Có thể bị tràn luồng (thread explosion)</td>
+          <td>Khi có quá nhiều kết nối cùng lúc</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="7-cải-tiến-với-thread-pool">7. Cải tiến với Thread Pool</h2>
+<p>Thay vì tạo mới một luồng cho mỗi client, ta có thể dùng <strong>Thread Pool (bộ quản lý luồng)</strong>:</p>
+<ul>
+<li>Giới hạn số luồng tối đa đang chạy.</li>
+<li>Tái sử dụng luồng sau khi client ngắt.</li>
+<li>Tiết kiệm tài nguyên và kiểm soát tải tốt hơn.</li>
+</ul>
+<h3 id="ví-dụ-với-threadpoolexecutor">Ví dụ với ThreadPoolExecutor:</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">import</span> java.io.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.net.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.util.concurrent.*;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Worker</span> <span style="color:#66d9ef">implements</span> Runnable {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> Socket socket;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">Worker</span>(Socket socket) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">socket</span> <span style="color:#f92672">=</span> socket;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">run</span>() {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>            BufferedReader in <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> BufferedReader(<span style="color:#66d9ef">new</span> InputStreamReader(socket.<span style="color:#a6e22e">getInputStream</span>()));
+</span></span><span style="display:flex;"><span>            PrintWriter out <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> PrintWriter(socket.<span style="color:#a6e22e">getOutputStream</span>(), <span style="color:#66d9ef">true</span>);
+</span></span><span style="display:flex;"><span>            String msg;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">while</span> ((msg <span style="color:#f92672">=</span> in.<span style="color:#a6e22e">readLine</span>()) <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span>) {
+</span></span><span style="display:flex;"><span>                out.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Server: &#34;</span> <span style="color:#f92672">+</span> msg);
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>            socket.<span style="color:#a6e22e">close</span>();
+</span></span><span style="display:flex;"><span>        } <span style="color:#66d9ef">catch</span> (IOException e) {
+</span></span><span style="display:flex;"><span>            e.<span style="color:#a6e22e">printStackTrace</span>();
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ThreadPoolServer</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) <span style="color:#66d9ef">throws</span> IOException {
+</span></span><span style="display:flex;"><span>        ServerSocket serverSocket <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ServerSocket(5000);
+</span></span><span style="display:flex;"><span>        ExecutorService pool <span style="color:#f92672">=</span> Executors.<span style="color:#a6e22e">newFixedThreadPool</span>(10);
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Server với Thread Pool đang hoạt động...&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span> (<span style="color:#66d9ef">true</span>) {
+</span></span><span style="display:flex;"><span>            Socket socket <span style="color:#f92672">=</span> serverSocket.<span style="color:#a6e22e">accept</span>();
+</span></span><span style="display:flex;"><span>            pool.<span style="color:#a6e22e">execute</span>(<span style="color:#66d9ef">new</span> Worker(socket));
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="8-kết-luận">8. Kết luận</h2>
+<p><strong>Đa luồng</strong> là thành phần quan trọng trong lập trình mạng giúp <strong>xây dựng server hiệu quả và mở rộng dễ dàng</strong>.<br>
+Việc hiểu rõ cách hoạt động của luồng, đồng bộ hóa dữ liệu và tối ưu tài nguyên sẽ giúp lập trình viên triển khai các <strong>ứng dụng mạng mạnh mẽ, ổn định và hiệu suất cao</strong>.</p>
+<hr>
+<p>Tác giả: Trần Hữu Nhật<br>
+Học phần: Lập trình mạng cơ bản</p>
+
+    </article>
+    
+  </main>
+
+  <footer>
+  <div class="social-links">
+    <a href="https://www.facebook.com/thn.vintage" target="_blank" aria-label="Facebook">
+      <i class="fab fa-facebook"></i>
+    </a>
+    <a href="https://github.com/TranHuuNhat0806" target="_blank" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  
+  
+  <button id="back-to-top" aria-label="Trở về đầu trang">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+</footer>
+
+
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+/>
+
+<script>
+  
+  const backToTopBtn = document.getElementById('back-to-top');
+  
+  
+  window.addEventListener('scroll', () => {
+    if (window.pageYOffset > 300) {
+      backToTopBtn.classList.add('show');
+    } else {
+      backToTopBtn.classList.remove('show');
+    }
+  });
+  
+  
+  backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  });
+</script>
+
+
+</body>
+</html>

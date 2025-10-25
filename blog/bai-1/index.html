@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bài 1 - Giới thiệu lập trình mạng và mô hình OSI - Blog cá nhân - Trần Hữu Nhật</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="is-blog">
+
+  
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+/>
+
+<header>
+  <nav>
+    <a href="/"><i class="fas fa-home"></i> Home</a>
+    <a href="/blog/"><i class="fas fa-book"></i> Bài viết</a>
+    <a href="/about/"><i class="fas fa-user"></i> Giới thiệu</a>
+    
+    <button id="theme-toggle" aria-label="Chuyển đổi giao diện">
+      <i id="theme-icon" class="fas fa-sun"></i> Theme
+    </button>
+    
+    <button id="search-toggle" aria-label="Tìm kiếm">
+      <i class="fas fa-search"></i> Tìm kiếm
+    </button>
+  </nav>
+  
+  
+  <div id="search-overlay" class="search-overlay">
+    <div class="search-container">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Tìm kiếm bài viết, tag..." autocomplete="off">
+        <button id="search-close" aria-label="Đóng tìm kiếm">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="search-results" class="search-results"></div>
+    </div>
+  </div>
+</header>
+
+<script>
+  const toggleBtn = document.getElementById("theme-toggle");
+  const icon = document.getElementById("theme-icon");
+
+  
+  if (localStorage.getItem("theme") === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+    icon.classList.replace("fa-sun", "fa-moon");
+  }
+
+  
+  toggleBtn.addEventListener("click", () => {
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    const isDark = currentTheme === "dark";
+
+    document.documentElement.setAttribute("data-theme", isDark ? "light" : "dark");
+    localStorage.setItem("theme", isDark ? "light" : "dark");
+
+    
+    if (isDark) {
+      
+      icon.classList.replace("fa-moon", "fa-sun");
+    } else {
+      
+      icon.classList.replace("fa-sun", "fa-moon");
+    }
+  });
+
+  
+  
+  
+  const searchToggle = document.getElementById('search-toggle');
+  const searchOverlay = document.getElementById('search-overlay');
+  const searchContainer = document.querySelector('.search-container');
+  const searchInput = document.getElementById('search-input');
+  const searchClose = document.getElementById('search-close');
+  const searchResults = document.getElementById('search-results');
+
+  
+  searchToggle.addEventListener('click', () => {
+    searchOverlay.classList.add('show');
+    searchInput.focus();
+  });
+
+  
+  searchClose.addEventListener('click', () => {
+    searchOverlay.classList.remove('show');
+    searchInput.value = '';
+    searchResults.innerHTML = '';
+  });
+
+  
+  document.addEventListener('click', (e) => {
+    if (!searchOverlay.contains(e.target) && !searchToggle.contains(e.target)) {
+      searchOverlay.classList.remove('show');
+      searchInput.value = '';
+      searchResults.innerHTML = '';
+    }
+  });
+
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && searchOverlay.classList.contains('show')) {
+      searchOverlay.classList.remove('show');
+      searchInput.value = '';
+      searchResults.innerHTML = '';
+    }
+  });
+
+  
+  const searchData = [
+    {
+      title: "Giới thiệu ngôn ngữ Java",
+      url: "/blog/java-gioi-thieu/",
+      excerpt: "Java là một ngôn ngữ lập trình hướng đối tượng (OOP) mạnh mẽ, được phát triển bởi Sun Microsystems (nay thuộc Oracle) vào năm 1995. Đây là ngôn ngữ lập trình có khẩu hiệu nổi tiếng: 'Write once, run anywhere' – Viết một lần, chạy ở mọi nơi.",
+      tags: ["Java", "Programming", "OOP", "JVM"]
+    },
+    {
+      title: "Hướng dẫn lập trình Python",
+      url: "/blog/python-tutorial/",
+      excerpt: "Python là ngôn ngữ lập trình đơn giản, dễ học và mạnh mẽ. Python được sử dụng rộng rãi trong nhiều lĩnh vực như web development, data science, AI/ML...",
+      tags: ["Python", "Tutorial", "Programming", "Web Development"]
+    },
+    {
+      title: "JavaScript cơ bản",
+      url: "/blog/javascript-basics/",
+      excerpt: "JavaScript là ngôn ngữ lập trình phía client, được sử dụng rộng rãi trong web development. JavaScript giúp tạo ra các trang web tương tác và động...",
+      tags: ["JavaScript", "Web", "Frontend", "DOM"]
+    },
+    {
+      title: "React.js từ cơ bản đến nâng cao",
+      url: "/blog/react-tutorial/",
+      excerpt: "React là một thư viện JavaScript phổ biến để xây dựng giao diện người dùng, đặc biệt là các ứng dụng web đơn trang (SPA)...",
+      tags: ["React", "JavaScript", "Frontend", "SPA"]
+    },
+    {
+      title: "Node.js và Express.js",
+      url: "/blog/nodejs-express/",
+      excerpt: "Node.js cho phép chạy JavaScript trên server-side, kết hợp với Express.js framework để xây dựng các ứng dụng web và API...",
+      tags: ["Node.js", "Express", "Backend", "API"]
+    }
+  ];
+
+  
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    
+    if (query.length < 2) {
+      searchResults.innerHTML = '';
+      return;
+    }
+
+    const results = searchData.filter(item => {
+      const titleMatch = item.title.toLowerCase().includes(query);
+      const excerptMatch = item.excerpt.toLowerCase().includes(query);
+      const tagMatch = item.tags.some(tag => tag.toLowerCase().includes(query));
+      
+      return titleMatch || excerptMatch || tagMatch;
+    });
+
+    
+    results.sort((a, b) => {
+      const aTitleMatch = a.title.toLowerCase().includes(query);
+      const bTitleMatch = b.title.toLowerCase().includes(query);
+      
+      if (aTitleMatch && !bTitleMatch) return -1;
+      if (!aTitleMatch && bTitleMatch) return 1;
+      return 0;
+    });
+
+    displaySearchResults(results, query);
+  });
+
+  
+  function displaySearchResults(results, query) {
+    if (results.length === 0) {
+      searchResults.innerHTML = `
+        <div class="search-no-results">
+          <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+          <p>Không tìm thấy kết quả nào cho "<strong>${query}</strong>"</p>
+          <p style="font-size: 0.9rem; margin-top: 0.5rem;">Thử tìm kiếm với từ khóa khác</p>
+        </div>
+      `;
+      return;
+    }
+
+    const resultsHTML = results.map(item => `
+      <div class="search-result-item" onclick="window.location.href='${item.url}'">
+        <div class="search-result-title">${highlightText(item.title, query)}</div>
+        <div class="search-result-excerpt">${highlightText(item.excerpt.substring(0, 150) + '...', query)}</div>
+        <div class="search-result-tags">
+          ${item.tags.map(tag => `<span class="search-result-tag">${tag}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    searchResults.innerHTML = resultsHTML;
+  }
+
+  
+  function highlightText(text, query) {
+    if (!query) return text;
+    const regex = new RegExp(`(${query})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+  }
+</script>
+
+
+  <main class="container">
+    
+    <article>
+    <h1>Bài 1 - Giới thiệu lập trình mạng và mô hình OSI</h1>
+    <p class="post-meta"><i>Đăng ngày 20/10/2025 lúc 00:00</i></p>
+    <h2 id="1-lập-trình-mạng-là-gì">1. Lập trình mạng là gì</h2>
+<p>Lập trình mạng là lĩnh vực giúp máy tính có thể giao tiếp với nhau thông qua kết nối mạng.<br>
+Các chương trình mạng thường có hai thành phần chính:</p>
+<ul>
+<li><strong>Client</strong>: là bên gửi yêu cầu (ví dụ: trình duyệt web, ứng dụng chat).</li>
+<li><strong>Server</strong>: là bên nhận yêu cầu và gửi phản hồi (ví dụ: máy chủ web, máy chủ game).</li>
+</ul>
+<p>Lập trình mạng giúp ta:</p>
+<ul>
+<li>Truyền dữ liệu giữa các thiết bị thông qua mạng LAN, WAN hoặc Internet.</li>
+<li>Tạo ứng dụng client - server như: chat, chia sẻ file, game online, API.</li>
+<li>Tìm hiểu cách dữ liệu được gửi đi, xử lý và phản hồi qua các tầng của mạng.</li>
+</ul>
+<hr>
+<h2 id="2-mô-hình-osi-open-systems-interconnection">2. Mô hình OSI (Open Systems Interconnection)</h2>
+<p>Mô hình OSI là tiêu chuẩn do ISO đề xuất để mô tả cách dữ liệu di chuyển trong hệ thống mạng.<br>
+Mô hình gồm <strong>7 tầng</strong>, từ tầng vật lý đến tầng ứng dụng.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Tầng</th>
+          <th>Tên tầng</th>
+          <th>Chức năng chính</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>7</td>
+          <td>Ứng dụng (Application)</td>
+          <td>Cung cấp giao diện cho người dùng và ứng dụng</td>
+      </tr>
+      <tr>
+          <td>6</td>
+          <td>Trình bày (Presentation)</td>
+          <td>Chuyển đổi định dạng dữ liệu, mã hóa, nén</td>
+      </tr>
+      <tr>
+          <td>5</td>
+          <td>Phiên (Session)</td>
+          <td>Quản lý phiên giao tiếp giữa các tiến trình</td>
+      </tr>
+      <tr>
+          <td>4</td>
+          <td>Vận chuyển (Transport)</td>
+          <td>Truyền dữ liệu tin cậy (TCP) hoặc nhanh (UDP)</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>Mạng (Network)</td>
+          <td>Định tuyến, cấp phát địa chỉ IP</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td>Liên kết dữ liệu (Data Link)</td>
+          <td>Kiểm soát lỗi, khung dữ liệu</td>
+      </tr>
+      <tr>
+          <td>1</td>
+          <td>Vật lý (Physical)</td>
+          <td>Truyền tín hiệu điện hoặc sóng radio</td>
+      </tr>
+  </tbody>
+</table>
+<p>Thực tế, chúng ta thường sử dụng <strong>mô hình TCP/IP</strong> rút gọn còn 4 tầng:</p>
+<ul>
+<li>Application</li>
+<li>Transport</li>
+<li>Internet</li>
+<li>Network Access</li>
+</ul>
+<p>Mô hình TCP/IP được dùng trong hầu hết các hệ thống mạng hiện nay, kể cả Internet.</p>
+<hr>
+<h2 id="3-giao-thức-truyền-thông-protocol">3. Giao thức truyền thông (Protocol)</h2>
+<p>Giao thức là tập hợp các quy tắc quy định cách các thiết bị truyền và nhận dữ liệu.<br>
+Một số giao thức thông dụng:</p>
+<table>
+  <thead>
+      <tr>
+          <th>Giao thức</th>
+          <th>Mục đích sử dụng</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>HTTP / HTTPS</td>
+          <td>Truyền dữ liệu web</td>
+      </tr>
+      <tr>
+          <td>FTP</td>
+          <td>Truyền file</td>
+      </tr>
+      <tr>
+          <td>SMTP / POP3 / IMAP</td>
+          <td>Gửi và nhận email</td>
+      </tr>
+      <tr>
+          <td>DNS</td>
+          <td>Tra cứu tên miền</td>
+      </tr>
+      <tr>
+          <td>TCP / UDP</td>
+          <td>Giao tiếp ở tầng vận chuyển</td>
+      </tr>
+      <tr>
+          <td>IP</td>
+          <td>Giao tiếp ở tầng mạng</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="4-socket-là-gì">4. Socket là gì</h2>
+<p><strong>Socket</strong> là một điểm cuối (endpoint) của kết nối giữa hai tiến trình qua mạng.<br>
+Mỗi socket có địa chỉ IP và số cổng (port).<br>
+Ví dụ: <code>127.0.0.1:8080</code></p>
+<p>Có hai loại socket chính:</p>
+<ul>
+<li><strong>TCP Socket</strong>: kết nối có xác nhận, đảm bảo dữ liệu đến nơi.</li>
+<li><strong>UDP Socket</strong>: kết nối không xác nhận, nhanh nhưng không đảm bảo dữ liệu.</li>
+</ul>
+<hr>
+<h2 id="5-ví-dụ-minh-họa-lập-trình-mạng-với-tcp-socket">5. Ví dụ minh họa lập trình mạng với TCP Socket</h2>
+<p>Dưới đây là ví dụ cơ bản bằng <strong>Java</strong> về mô hình client - server:</p>
+<h3 id="file-serverjava">File Server.java</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">import</span> java.io.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.net.*;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Server</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) <span style="color:#66d9ef">throws</span> IOException {
+</span></span><span style="display:flex;"><span>        ServerSocket serverSocket <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ServerSocket(8080);
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Server đang lắng nghe tại cổng 8080...&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        Socket socket <span style="color:#f92672">=</span> serverSocket.<span style="color:#a6e22e">accept</span>();
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Client đã kết nối!&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        BufferedReader input <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> BufferedReader(<span style="color:#66d9ef">new</span> InputStreamReader(socket.<span style="color:#a6e22e">getInputStream</span>()));
+</span></span><span style="display:flex;"><span>        PrintWriter output <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> PrintWriter(socket.<span style="color:#a6e22e">getOutputStream</span>(), <span style="color:#66d9ef">true</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        String message <span style="color:#f92672">=</span> input.<span style="color:#a6e22e">readLine</span>();
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Tin nhắn từ client: &#34;</span> <span style="color:#f92672">+</span> message);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        output.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Server đã nhận: &#34;</span> <span style="color:#f92672">+</span> message);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        socket.<span style="color:#a6e22e">close</span>();
+</span></span><span style="display:flex;"><span>        serverSocket.<span style="color:#a6e22e">close</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="file-clientjava">File Client.java</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">import</span> java.io.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.net.*;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Client</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) <span style="color:#66d9ef">throws</span> IOException {
+</span></span><span style="display:flex;"><span>        Socket socket <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Socket(<span style="color:#e6db74">&#34;localhost&#34;</span>, 8080);
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Đã kết nối tới server!&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        BufferedReader input <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> BufferedReader(<span style="color:#66d9ef">new</span> InputStreamReader(System.<span style="color:#a6e22e">in</span>));
+</span></span><span style="display:flex;"><span>        PrintWriter output <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> PrintWriter(socket.<span style="color:#a6e22e">getOutputStream</span>(), <span style="color:#66d9ef">true</span>);
+</span></span><span style="display:flex;"><span>        BufferedReader serverInput <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> BufferedReader(<span style="color:#66d9ef">new</span> InputStreamReader(socket.<span style="color:#a6e22e">getInputStream</span>()));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">print</span>(<span style="color:#e6db74">&#34;Nhập tin nhắn gửi server: &#34;</span>);
+</span></span><span style="display:flex;"><span>        String message <span style="color:#f92672">=</span> input.<span style="color:#a6e22e">readLine</span>();
+</span></span><span style="display:flex;"><span>        output.<span style="color:#a6e22e">println</span>(message);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        String response <span style="color:#f92672">=</span> serverInput.<span style="color:#a6e22e">readLine</span>();
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Phản hồi từ server: &#34;</span> <span style="color:#f92672">+</span> response);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        socket.<span style="color:#a6e22e">close</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Khi chạy chương trình:</p>
+<ol>
+<li>Chạy <strong>Server.java</strong> trước.</li>
+<li>Sau đó chạy <strong>Client.java</strong>.</li>
+<li>Nhập tin nhắn và xem kết quả trên màn hình.</li>
+</ol>
+<hr>
+<h2 id="6-kiến-thức-bổ-sung">6. Kiến thức bổ sung</h2>
+<h3 id="kết-nối-tcp-hoạt-động-như-thế-nào">Kết nối TCP hoạt động như thế nào</h3>
+<ol>
+<li>
+<p><strong>Three-way Handshake</strong></p>
+<ul>
+<li>Client gửi yêu cầu SYN đến server.</li>
+<li>Server phản hồi SYN-ACK.</li>
+<li>Client gửi ACK xác nhận.
+=&gt; Kết nối được thiết lập.</li>
+</ul>
+</li>
+<li>
+<p><strong>Truyền dữ liệu</strong></p>
+<ul>
+<li>Dữ liệu được chia thành các gói (packet).</li>
+<li>Mỗi gói có số thứ tự, đảm bảo gửi đúng thứ tự.</li>
+</ul>
+</li>
+<li>
+<p><strong>Đóng kết nối</strong></p>
+<ul>
+<li>Cả hai bên gửi FIN và ACK để xác nhận ngắt kết nối.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="7-phân-biệt-tcp-và-udp">7. Phân biệt TCP và UDP</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Đặc điểm</th>
+          <th>TCP</th>
+          <th>UDP</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Kiểu kết nối</td>
+          <td>Có kết nối (connection-oriented)</td>
+          <td>Không kết nối (connectionless)</td>
+      </tr>
+      <tr>
+          <td>Độ tin cậy</td>
+          <td>Đảm bảo</td>
+          <td>Không đảm bảo</td>
+      </tr>
+      <tr>
+          <td>Tốc độ</td>
+          <td>Chậm hơn</td>
+          <td>Nhanh hơn</td>
+      </tr>
+      <tr>
+          <td>Ứng dụng</td>
+          <td>Web, Email, FTP</td>
+          <td>Game, Video, Voice Chat</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="8-ứng-dụng-thực-tế-của-lập-trình-mạng">8. Ứng dụng thực tế của lập trình mạng</h2>
+<ul>
+<li>Ứng dụng <strong>chat thời gian thực</strong></li>
+<li>Ứng dụng <strong>truyền file</strong></li>
+<li>Dịch vụ <strong>API client-server</strong></li>
+<li><strong>Game online</strong> nhiều người chơi</li>
+<li><strong>Giám sát hệ thống mạng</strong></li>
+</ul>
+<hr>
+<h2 id="9-kết-luận">9. Kết luận</h2>
+<p>Qua bài này, bạn đã hiểu:</p>
+<ul>
+<li>Lập trình mạng là gì và tại sao cần học.</li>
+<li>Cấu trúc mô hình OSI và TCP/IP.</li>
+<li>Cách hoạt động của Socket.</li>
+<li>Ví dụ cơ bản giao tiếp TCP client-server.</li>
+</ul>
+<p>Trong bài tiếp theo, chúng ta sẽ học cách <strong>tạo và quản lý Socket</strong> chi tiết hơn, xử lý nhiều client cùng lúc bằng <strong>đa luồng (multithreading)</strong>.</p>
+<hr>
+<p>Tác giả: Trần Hữu Nhật
+Học phần: Lập trình mạng cơ bản</p>
+
+    </article>
+    
+  </main>
+
+  <footer>
+  <div class="social-links">
+    <a href="https://www.facebook.com/thn.vintage" target="_blank" aria-label="Facebook">
+      <i class="fab fa-facebook"></i>
+    </a>
+    <a href="https://github.com/TranHuuNhat0806" target="_blank" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  
+  
+  <button id="back-to-top" aria-label="Trở về đầu trang">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+</footer>
+
+
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+/>
+
+<script>
+  
+  const backToTopBtn = document.getElementById('back-to-top');
+  
+  
+  window.addEventListener('scroll', () => {
+    if (window.pageYOffset > 300) {
+      backToTopBtn.classList.add('show');
+    } else {
+      backToTopBtn.classList.remove('show');
+    }
+  });
+  
+  
+  backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  });
+</script>
+
+
+</body>
+</html>

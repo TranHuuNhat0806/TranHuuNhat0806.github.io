@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bài 7 - Lập trình HTTP và REST API cơ bản - Blog cá nhân - Trần Hữu Nhật</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="is-blog">
+
+  
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+/>
+
+<header>
+  <nav>
+    <a href="/"><i class="fas fa-home"></i> Home</a>
+    <a href="/blog/"><i class="fas fa-book"></i> Bài viết</a>
+    <a href="/about/"><i class="fas fa-user"></i> Giới thiệu</a>
+    
+    <button id="theme-toggle" aria-label="Chuyển đổi giao diện">
+      <i id="theme-icon" class="fas fa-sun"></i> Theme
+    </button>
+    
+    <button id="search-toggle" aria-label="Tìm kiếm">
+      <i class="fas fa-search"></i> Tìm kiếm
+    </button>
+  </nav>
+  
+  
+  <div id="search-overlay" class="search-overlay">
+    <div class="search-container">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Tìm kiếm bài viết, tag..." autocomplete="off">
+        <button id="search-close" aria-label="Đóng tìm kiếm">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="search-results" class="search-results"></div>
+    </div>
+  </div>
+</header>
+
+<script>
+  const toggleBtn = document.getElementById("theme-toggle");
+  const icon = document.getElementById("theme-icon");
+
+  
+  if (localStorage.getItem("theme") === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+    icon.classList.replace("fa-sun", "fa-moon");
+  }
+
+  
+  toggleBtn.addEventListener("click", () => {
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    const isDark = currentTheme === "dark";
+
+    document.documentElement.setAttribute("data-theme", isDark ? "light" : "dark");
+    localStorage.setItem("theme", isDark ? "light" : "dark");
+
+    
+    if (isDark) {
+      
+      icon.classList.replace("fa-moon", "fa-sun");
+    } else {
+      
+      icon.classList.replace("fa-sun", "fa-moon");
+    }
+  });
+
+  
+  
+  
+  const searchToggle = document.getElementById('search-toggle');
+  const searchOverlay = document.getElementById('search-overlay');
+  const searchContainer = document.querySelector('.search-container');
+  const searchInput = document.getElementById('search-input');
+  const searchClose = document.getElementById('search-close');
+  const searchResults = document.getElementById('search-results');
+
+  
+  searchToggle.addEventListener('click', () => {
+    searchOverlay.classList.add('show');
+    searchInput.focus();
+  });
+
+  
+  searchClose.addEventListener('click', () => {
+    searchOverlay.classList.remove('show');
+    searchInput.value = '';
+    searchResults.innerHTML = '';
+  });
+
+  
+  document.addEventListener('click', (e) => {
+    if (!searchOverlay.contains(e.target) && !searchToggle.contains(e.target)) {
+      searchOverlay.classList.remove('show');
+      searchInput.value = '';
+      searchResults.innerHTML = '';
+    }
+  });
+
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && searchOverlay.classList.contains('show')) {
+      searchOverlay.classList.remove('show');
+      searchInput.value = '';
+      searchResults.innerHTML = '';
+    }
+  });
+
+  
+  const searchData = [
+    {
+      title: "Giới thiệu ngôn ngữ Java",
+      url: "/blog/java-gioi-thieu/",
+      excerpt: "Java là một ngôn ngữ lập trình hướng đối tượng (OOP) mạnh mẽ, được phát triển bởi Sun Microsystems (nay thuộc Oracle) vào năm 1995. Đây là ngôn ngữ lập trình có khẩu hiệu nổi tiếng: 'Write once, run anywhere' – Viết một lần, chạy ở mọi nơi.",
+      tags: ["Java", "Programming", "OOP", "JVM"]
+    },
+    {
+      title: "Hướng dẫn lập trình Python",
+      url: "/blog/python-tutorial/",
+      excerpt: "Python là ngôn ngữ lập trình đơn giản, dễ học và mạnh mẽ. Python được sử dụng rộng rãi trong nhiều lĩnh vực như web development, data science, AI/ML...",
+      tags: ["Python", "Tutorial", "Programming", "Web Development"]
+    },
+    {
+      title: "JavaScript cơ bản",
+      url: "/blog/javascript-basics/",
+      excerpt: "JavaScript là ngôn ngữ lập trình phía client, được sử dụng rộng rãi trong web development. JavaScript giúp tạo ra các trang web tương tác và động...",
+      tags: ["JavaScript", "Web", "Frontend", "DOM"]
+    },
+    {
+      title: "React.js từ cơ bản đến nâng cao",
+      url: "/blog/react-tutorial/",
+      excerpt: "React là một thư viện JavaScript phổ biến để xây dựng giao diện người dùng, đặc biệt là các ứng dụng web đơn trang (SPA)...",
+      tags: ["React", "JavaScript", "Frontend", "SPA"]
+    },
+    {
+      title: "Node.js và Express.js",
+      url: "/blog/nodejs-express/",
+      excerpt: "Node.js cho phép chạy JavaScript trên server-side, kết hợp với Express.js framework để xây dựng các ứng dụng web và API...",
+      tags: ["Node.js", "Express", "Backend", "API"]
+    }
+  ];
+
+  
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    
+    if (query.length < 2) {
+      searchResults.innerHTML = '';
+      return;
+    }
+
+    const results = searchData.filter(item => {
+      const titleMatch = item.title.toLowerCase().includes(query);
+      const excerptMatch = item.excerpt.toLowerCase().includes(query);
+      const tagMatch = item.tags.some(tag => tag.toLowerCase().includes(query));
+      
+      return titleMatch || excerptMatch || tagMatch;
+    });
+
+    
+    results.sort((a, b) => {
+      const aTitleMatch = a.title.toLowerCase().includes(query);
+      const bTitleMatch = b.title.toLowerCase().includes(query);
+      
+      if (aTitleMatch && !bTitleMatch) return -1;
+      if (!aTitleMatch && bTitleMatch) return 1;
+      return 0;
+    });
+
+    displaySearchResults(results, query);
+  });
+
+  
+  function displaySearchResults(results, query) {
+    if (results.length === 0) {
+      searchResults.innerHTML = `
+        <div class="search-no-results">
+          <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+          <p>Không tìm thấy kết quả nào cho "<strong>${query}</strong>"</p>
+          <p style="font-size: 0.9rem; margin-top: 0.5rem;">Thử tìm kiếm với từ khóa khác</p>
+        </div>
+      `;
+      return;
+    }
+
+    const resultsHTML = results.map(item => `
+      <div class="search-result-item" onclick="window.location.href='${item.url}'">
+        <div class="search-result-title">${highlightText(item.title, query)}</div>
+        <div class="search-result-excerpt">${highlightText(item.excerpt.substring(0, 150) + '...', query)}</div>
+        <div class="search-result-tags">
+          ${item.tags.map(tag => `<span class="search-result-tag">${tag}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    searchResults.innerHTML = resultsHTML;
+  }
+
+  
+  function highlightText(text, query) {
+    if (!query) return text;
+    const regex = new RegExp(`(${query})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+  }
+</script>
+
+
+  <main class="container">
+    
+    <article>
+    <h1>Bài 7 - Lập trình HTTP và REST API cơ bản</h1>
+    <p class="post-meta"><i>Đăng ngày 20/10/2025 lúc 00:00</i></p>
+    <h2 id="1-giới-thiệu-về-http-và-rest-api">1. Giới thiệu về HTTP và REST API</h2>
+<p><strong>HTTP (HyperText Transfer Protocol)</strong> là giao thức truyền thông được sử dụng phổ biến nhất trên Internet, cho phép client và server trao đổi dữ liệu (văn bản, hình ảnh, JSON, v.v).</p>
+<p><strong>REST API (Representational State Transfer)</strong> là một phong cách thiết kế cho phép giao tiếp giữa các hệ thống thông qua giao thức HTTP, thường dùng trong các ứng dụng web và mobile.</p>
+<p>REST hoạt động dựa trên <strong>tài nguyên (resource)</strong>, được định danh bằng <strong>URL</strong>, và thao tác thông qua <strong>các phương thức HTTP</strong> như <code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>DELETE</code>.</p>
+<hr>
+<h2 id="2-kiến-trúc-restful">2. Kiến trúc RESTful</h2>
+<p>REST chia hệ thống thành hai phần:</p>
+<ul>
+<li><strong>Client:</strong> gửi yêu cầu (request) đến server.</li>
+<li><strong>Server:</strong> xử lý yêu cầu và trả về phản hồi (response).</li>
+</ul>
+<p>Cấu trúc tổng quát:</p>
+<pre tabindex="0"><code>Client  →  Request (HTTP)  →  Server  →  Response (JSON/XML)
+</code></pre><h3 id="một-rest-api-tuân-theo-các-nguyên-tắc">Một REST API tuân theo các nguyên tắc:</h3>
+<ol>
+<li><strong>Stateless</strong> – Mỗi request độc lập, không lưu trạng thái giữa các lần gọi.</li>
+<li><strong>Client-Server Separation</strong> – Client và server tách biệt rõ ràng.</li>
+<li><strong>Uniform Interface</strong> – Dữ liệu và đường dẫn tài nguyên được thiết kế thống nhất.</li>
+<li><strong>Use of HTTP Methods</strong> – Sử dụng đúng ngữ nghĩa của GET, POST, PUT, DELETE.</li>
+<li><strong>Representation</strong> – Dữ liệu có thể ở nhiều định dạng (JSON, XML, v.v).</li>
+</ol>
+<hr>
+<h2 id="3-cấu-trúc-http-request--response">3. Cấu trúc HTTP Request &amp; Response</h2>
+<h3 id="31-http-request">3.1 HTTP Request</h3>
+<p>Một request HTTP bao gồm 3 phần:</p>
+<pre tabindex="0"><code>&lt;HTTP Method&gt; &lt;URL&gt; &lt;HTTP Version&gt;
+&lt;Headers&gt;
+&lt;Body&gt;
+</code></pre><p>Ví dụ:</p>
+<pre tabindex="0"><code>POST /api/login HTTP/1.1
+Host: example.com
+Content-Type: application/json
+
+{
+  &#34;username&#34;: &#34;admin&#34;,
+  &#34;password&#34;: &#34;1234&#34;
+}
+</code></pre><h3 id="32-http-response">3.2 HTTP Response</h3>
+<p>Response cũng có cấu trúc tương tự:</p>
+<pre tabindex="0"><code>&lt;HTTP Version&gt; &lt;Status Code&gt; &lt;Message&gt;
+&lt;Headers&gt;
+&lt;Body&gt;
+</code></pre><p>Ví dụ:</p>
+<pre tabindex="0"><code>HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  &#34;status&#34;: &#34;success&#34;,
+  &#34;message&#34;: &#34;Login successful!&#34;
+}
+</code></pre><hr>
+<h2 id="4-các-phương-thức-http-phổ-biến">4. Các phương thức HTTP phổ biến</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Phương thức</th>
+          <th>Chức năng</th>
+          <th>Ví dụ</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>GET</strong></td>
+          <td>Lấy dữ liệu</td>
+          <td><code>/api/users</code></td>
+      </tr>
+      <tr>
+          <td><strong>POST</strong></td>
+          <td>Tạo mới dữ liệu</td>
+          <td><code>/api/users</code></td>
+      </tr>
+      <tr>
+          <td><strong>PUT</strong></td>
+          <td>Cập nhật toàn bộ dữ liệu</td>
+          <td><code>/api/users/1</code></td>
+      </tr>
+      <tr>
+          <td><strong>PATCH</strong></td>
+          <td>Cập nhật một phần dữ liệu</td>
+          <td><code>/api/users/1</code></td>
+      </tr>
+      <tr>
+          <td><strong>DELETE</strong></td>
+          <td>Xóa dữ liệu</td>
+          <td><code>/api/users/1</code></td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="5-mã-trạng-thái-http-status-code">5. Mã trạng thái HTTP (Status Code)</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Mã</th>
+          <th>Nhóm</th>
+          <th>Ý nghĩa</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>200</strong></td>
+          <td>Thành công</td>
+          <td>OK</td>
+      </tr>
+      <tr>
+          <td><strong>201</strong></td>
+          <td>Thành công</td>
+          <td>Đã tạo (Created)</td>
+      </tr>
+      <tr>
+          <td><strong>400</strong></td>
+          <td>Lỗi client</td>
+          <td>Yêu cầu sai (Bad Request)</td>
+      </tr>
+      <tr>
+          <td><strong>401</strong></td>
+          <td>Lỗi xác thực</td>
+          <td>Không có quyền truy cập (Unauthorized)</td>
+      </tr>
+      <tr>
+          <td><strong>404</strong></td>
+          <td>Lỗi client</td>
+          <td>Không tìm thấy tài nguyên</td>
+      </tr>
+      <tr>
+          <td><strong>500</strong></td>
+          <td>Lỗi server</td>
+          <td>Lỗi nội bộ máy chủ</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="6-ví-dụ-minh-họa-rest-api-java">6. Ví dụ minh họa REST API (Java)</h2>
+<h3 id="a-server-rest-đơn-giản-với-java-sử-dụng-comsunnethttpserver">a. Server REST đơn giản với Java (sử dụng <code>com.sun.net.httpserver</code>)</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">import</span> com.sun.net.httpserver.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.io.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.net.InetSocketAddress;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SimpleHttpServer</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) <span style="color:#66d9ef">throws</span> IOException {
+</span></span><span style="display:flex;"><span>        HttpServer server <span style="color:#f92672">=</span> HttpServer.<span style="color:#a6e22e">create</span>(<span style="color:#66d9ef">new</span> InetSocketAddress(8080), 0);
+</span></span><span style="display:flex;"><span>        server.<span style="color:#a6e22e">createContext</span>(<span style="color:#e6db74">&#34;/api/hello&#34;</span>, <span style="color:#66d9ef">new</span> HelloHandler());
+</span></span><span style="display:flex;"><span>        server.<span style="color:#a6e22e">setExecutor</span>(<span style="color:#66d9ef">null</span>);
+</span></span><span style="display:flex;"><span>        server.<span style="color:#a6e22e">start</span>();
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Server đang chạy tại http://localhost:8080/&#34;</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">HelloHandler</span> <span style="color:#66d9ef">implements</span> HttpHandler {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">handle</span>(HttpExchange exchange) <span style="color:#66d9ef">throws</span> IOException {
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> (<span style="color:#e6db74">&#34;GET&#34;</span>.<span style="color:#a6e22e">equals</span>(exchange.<span style="color:#a6e22e">getRequestMethod</span>())) {
+</span></span><span style="display:flex;"><span>                String response <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;{&#34;</span>message<span style="color:#e6db74">&#34;:&#34;</span>Xin chào từ REST API<span style="color:#f92672">!</span><span style="color:#e6db74">&#34;}&#34;</span>;
+</span></span><span style="display:flex;"><span>                exchange.<span style="color:#a6e22e">getResponseHeaders</span>().<span style="color:#a6e22e">add</span>(<span style="color:#e6db74">&#34;Content-Type&#34;</span>, <span style="color:#e6db74">&#34;application/json&#34;</span>);
+</span></span><span style="display:flex;"><span>                exchange.<span style="color:#a6e22e">sendResponseHeaders</span>(200, response.<span style="color:#a6e22e">length</span>());
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">try</span> (OutputStream os <span style="color:#f92672">=</span> exchange.<span style="color:#a6e22e">getResponseBody</span>()) {
+</span></span><span style="display:flex;"><span>                    os.<span style="color:#a6e22e">write</span>(response.<span style="color:#a6e22e">getBytes</span>());
+</span></span><span style="display:flex;"><span>                }
+</span></span><span style="display:flex;"><span>            } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>                exchange.<span style="color:#a6e22e">sendResponseHeaders</span>(405, <span style="color:#f92672">-</span>1); <span style="color:#75715e">// Method Not Allowed</span>
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="cách-chạy">Cách chạy:</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>javac SimpleHttpServer.java
+</span></span><span style="display:flex;"><span>java SimpleHttpServer
+</span></span></code></pre></div><p>Truy cập <a href="http://localhost:8080/api/hello">http://localhost:8080/api/hello</a> để xem phản hồi JSON.</p>
+<hr>
+<h2 id="7-gọi-rest-api-từ-client-javascript">7. Gọi REST API từ Client (JavaScript)</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">fetch</span>(<span style="color:#e6db74">&#34;http://localhost:8080/api/hello&#34;</span>)
+</span></span><span style="display:flex;"><span>  .<span style="color:#a6e22e">then</span>(<span style="color:#a6e22e">response</span> =&gt; <span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">json</span>())
+</span></span><span style="display:flex;"><span>  .<span style="color:#a6e22e">then</span>(<span style="color:#a6e22e">data</span> =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#34;Phản hồi từ server:&#34;</span>, <span style="color:#a6e22e">data</span>.<span style="color:#a6e22e">message</span>);
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>  .<span style="color:#66d9ef">catch</span>(<span style="color:#a6e22e">err</span> =&gt; <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#34;Lỗi:&#34;</span>, <span style="color:#a6e22e">err</span>));
+</span></span></code></pre></div><p>Khi chạy trên trình duyệt, console sẽ hiển thị:</p>
+<pre tabindex="0"><code>Phản hồi từ server: Xin chào từ REST API!
+</code></pre><hr>
+<h2 id="8-định-dạng-dữ-liệu-trong-rest-api">8. Định dạng dữ liệu trong REST API</h2>
+<p>REST thường sử dụng:</p>
+<ul>
+<li><strong>JSON (JavaScript Object Notation)</strong> – dễ đọc, nhẹ, phổ biến nhất.</li>
+<li><strong>XML (Extensible Markup Language)</strong> – dùng trong hệ thống cũ.</li>
+<li><strong>Form Data / x-www-form-urlencoded</strong> – dùng trong HTML form.</li>
+</ul>
+<p>Ví dụ JSON:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;id&#34;</span>: <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;Nguyen Van A&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;email&#34;</span>: <span style="color:#e6db74">&#34;a@example.com&#34;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="9-ưu-điểm-của-rest-api">9. Ưu điểm của REST API</h2>
+<ul>
+<li>Đơn giản, dễ triển khai, dễ hiểu.</li>
+<li>Hoạt động tốt trên nền HTTP – không cần giao thức riêng.</li>
+<li>Dễ tích hợp với web, mobile, IoT.</li>
+<li>Hiệu suất cao, dễ mở rộng.</li>
+</ul>
+<h3 id="nhược-điểm">Nhược điểm:</h3>
+<ul>
+<li>Stateless – không lưu phiên (session).</li>
+<li>Không phù hợp cho truyền tải dữ liệu phức tạp (so với gRPC, GraphQL).</li>
+<li>Dễ sai sót nếu không tuân chuẩn RESTful.</li>
+</ul>
+<hr>
+<h2 id="10-ứng-dụng-thực-tế">10. Ứng dụng thực tế</h2>
+<ul>
+<li><strong>Web Application</strong>: Giao diện web gọi REST API để lấy dữ liệu.</li>
+<li><strong>Mobile App</strong>: Ứng dụng Android/iOS dùng REST để đồng bộ với server.</li>
+<li><strong>Microservices</strong>: Các dịch vụ nhỏ giao tiếp qua REST.</li>
+<li><strong>IoT Devices</strong>: Thiết bị gửi dữ liệu cảm biến lên REST API server.</li>
+</ul>
+<hr>
+<h2 id="11-kết-luận">11. Kết luận</h2>
+<p><strong>HTTP và REST API</strong> là nền tảng cho lập trình mạng hiện đại.<br>
+Việc hiểu rõ cách hoạt động của <strong>request/response</strong>, <strong>status code</strong>, và <strong>cấu trúc RESTful</strong> giúp lập trình viên phát triển các hệ thống web và mobile mạnh mẽ, dễ bảo trì, và tương thích cao.</p>
+<hr>
+<p>Tác giả: Trần Hữu Nhật<br>
+Học phần: Lập trình mạng cơ bản</p>
+
+    </article>
+    
+  </main>
+
+  <footer>
+  <div class="social-links">
+    <a href="https://www.facebook.com/thn.vintage" target="_blank" aria-label="Facebook">
+      <i class="fab fa-facebook"></i>
+    </a>
+    <a href="https://github.com/TranHuuNhat0806" target="_blank" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  
+  
+  <button id="back-to-top" aria-label="Trở về đầu trang">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+</footer>
+
+
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+/>
+
+<script>
+  
+  const backToTopBtn = document.getElementById('back-to-top');
+  
+  
+  window.addEventListener('scroll', () => {
+    if (window.pageYOffset > 300) {
+      backToTopBtn.classList.add('show');
+    } else {
+      backToTopBtn.classList.remove('show');
+    }
+  });
+  
+  
+  backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  });
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bài 4 - UDP Socket – Giao tiếp không kết nối (Connectionless Communication) - Blog cá nhân - Trần Hữu Nhật</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="is-blog">
+
+  
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+/>
+
+<header>
+  <nav>
+    <a href="/"><i class="fas fa-home"></i> Home</a>
+    <a href="/blog/"><i class="fas fa-book"></i> Bài viết</a>
+    <a href="/about/"><i class="fas fa-user"></i> Giới thiệu</a>
+    
+    <button id="theme-toggle" aria-label="Chuyển đổi giao diện">
+      <i id="theme-icon" class="fas fa-sun"></i> Theme
+    </button>
+    
+    <button id="search-toggle" aria-label="Tìm kiếm">
+      <i class="fas fa-search"></i> Tìm kiếm
+    </button>
+  </nav>
+  
+  
+  <div id="search-overlay" class="search-overlay">
+    <div class="search-container">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Tìm kiếm bài viết, tag..." autocomplete="off">
+        <button id="search-close" aria-label="Đóng tìm kiếm">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="search-results" class="search-results"></div>
+    </div>
+  </div>
+</header>
+
+<script>
+  const toggleBtn = document.getElementById("theme-toggle");
+  const icon = document.getElementById("theme-icon");
+
+  
+  if (localStorage.getItem("theme") === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+    icon.classList.replace("fa-sun", "fa-moon");
+  }
+
+  
+  toggleBtn.addEventListener("click", () => {
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    const isDark = currentTheme === "dark";
+
+    document.documentElement.setAttribute("data-theme", isDark ? "light" : "dark");
+    localStorage.setItem("theme", isDark ? "light" : "dark");
+
+    
+    if (isDark) {
+      
+      icon.classList.replace("fa-moon", "fa-sun");
+    } else {
+      
+      icon.classList.replace("fa-sun", "fa-moon");
+    }
+  });
+
+  
+  
+  
+  const searchToggle = document.getElementById('search-toggle');
+  const searchOverlay = document.getElementById('search-overlay');
+  const searchContainer = document.querySelector('.search-container');
+  const searchInput = document.getElementById('search-input');
+  const searchClose = document.getElementById('search-close');
+  const searchResults = document.getElementById('search-results');
+
+  
+  searchToggle.addEventListener('click', () => {
+    searchOverlay.classList.add('show');
+    searchInput.focus();
+  });
+
+  
+  searchClose.addEventListener('click', () => {
+    searchOverlay.classList.remove('show');
+    searchInput.value = '';
+    searchResults.innerHTML = '';
+  });
+
+  
+  document.addEventListener('click', (e) => {
+    if (!searchOverlay.contains(e.target) && !searchToggle.contains(e.target)) {
+      searchOverlay.classList.remove('show');
+      searchInput.value = '';
+      searchResults.innerHTML = '';
+    }
+  });
+
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && searchOverlay.classList.contains('show')) {
+      searchOverlay.classList.remove('show');
+      searchInput.value = '';
+      searchResults.innerHTML = '';
+    }
+  });
+
+  
+  const searchData = [
+    {
+      title: "Giới thiệu ngôn ngữ Java",
+      url: "/blog/java-gioi-thieu/",
+      excerpt: "Java là một ngôn ngữ lập trình hướng đối tượng (OOP) mạnh mẽ, được phát triển bởi Sun Microsystems (nay thuộc Oracle) vào năm 1995. Đây là ngôn ngữ lập trình có khẩu hiệu nổi tiếng: 'Write once, run anywhere' – Viết một lần, chạy ở mọi nơi.",
+      tags: ["Java", "Programming", "OOP", "JVM"]
+    },
+    {
+      title: "Hướng dẫn lập trình Python",
+      url: "/blog/python-tutorial/",
+      excerpt: "Python là ngôn ngữ lập trình đơn giản, dễ học và mạnh mẽ. Python được sử dụng rộng rãi trong nhiều lĩnh vực như web development, data science, AI/ML...",
+      tags: ["Python", "Tutorial", "Programming", "Web Development"]
+    },
+    {
+      title: "JavaScript cơ bản",
+      url: "/blog/javascript-basics/",
+      excerpt: "JavaScript là ngôn ngữ lập trình phía client, được sử dụng rộng rãi trong web development. JavaScript giúp tạo ra các trang web tương tác và động...",
+      tags: ["JavaScript", "Web", "Frontend", "DOM"]
+    },
+    {
+      title: "React.js từ cơ bản đến nâng cao",
+      url: "/blog/react-tutorial/",
+      excerpt: "React là một thư viện JavaScript phổ biến để xây dựng giao diện người dùng, đặc biệt là các ứng dụng web đơn trang (SPA)...",
+      tags: ["React", "JavaScript", "Frontend", "SPA"]
+    },
+    {
+      title: "Node.js và Express.js",
+      url: "/blog/nodejs-express/",
+      excerpt: "Node.js cho phép chạy JavaScript trên server-side, kết hợp với Express.js framework để xây dựng các ứng dụng web và API...",
+      tags: ["Node.js", "Express", "Backend", "API"]
+    }
+  ];
+
+  
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    
+    if (query.length < 2) {
+      searchResults.innerHTML = '';
+      return;
+    }
+
+    const results = searchData.filter(item => {
+      const titleMatch = item.title.toLowerCase().includes(query);
+      const excerptMatch = item.excerpt.toLowerCase().includes(query);
+      const tagMatch = item.tags.some(tag => tag.toLowerCase().includes(query));
+      
+      return titleMatch || excerptMatch || tagMatch;
+    });
+
+    
+    results.sort((a, b) => {
+      const aTitleMatch = a.title.toLowerCase().includes(query);
+      const bTitleMatch = b.title.toLowerCase().includes(query);
+      
+      if (aTitleMatch && !bTitleMatch) return -1;
+      if (!aTitleMatch && bTitleMatch) return 1;
+      return 0;
+    });
+
+    displaySearchResults(results, query);
+  });
+
+  
+  function displaySearchResults(results, query) {
+    if (results.length === 0) {
+      searchResults.innerHTML = `
+        <div class="search-no-results">
+          <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+          <p>Không tìm thấy kết quả nào cho "<strong>${query}</strong>"</p>
+          <p style="font-size: 0.9rem; margin-top: 0.5rem;">Thử tìm kiếm với từ khóa khác</p>
+        </div>
+      `;
+      return;
+    }
+
+    const resultsHTML = results.map(item => `
+      <div class="search-result-item" onclick="window.location.href='${item.url}'">
+        <div class="search-result-title">${highlightText(item.title, query)}</div>
+        <div class="search-result-excerpt">${highlightText(item.excerpt.substring(0, 150) + '...', query)}</div>
+        <div class="search-result-tags">
+          ${item.tags.map(tag => `<span class="search-result-tag">${tag}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    searchResults.innerHTML = resultsHTML;
+  }
+
+  
+  function highlightText(text, query) {
+    if (!query) return text;
+    const regex = new RegExp(`(${query})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+  }
+</script>
+
+
+  <main class="container">
+    
+    <article>
+    <h1>Bài 4 - UDP Socket – Giao tiếp không kết nối (Connectionless Communication)</h1>
+    <p class="post-meta"><i>Đăng ngày 20/10/2025 lúc 00:00</i></p>
+    <h2 id="1-giới-thiệu-về-udp-socket">1. Giới thiệu về UDP Socket</h2>
+<p><strong>UDP (User Datagram Protocol)</strong> là giao thức truyền dữ liệu <strong>không kết nối (connectionless)</strong>, cho phép gửi và nhận dữ liệu nhanh chóng mà không cần thiết lập hay duy trì phiên kết nối giữa <strong>client</strong> và <strong>server</strong>.</p>
+<p>Trong lập trình mạng, <strong>UDP Socket</strong> được dùng khi ta cần <strong>tốc độ cao hơn độ tin cậy tuyệt đối</strong> – ví dụ như truyền video, âm thanh, hoặc dữ liệu game thời gian thực.</p>
+<h3 id="đặc-điểm-chính">Đặc điểm chính:</h3>
+<ul>
+<li>Không cần thiết lập kết nối trước khi gửi dữ liệu.</li>
+<li>Không đảm bảo thứ tự hoặc độ tin cậy của gói tin.</li>
+<li>Dễ triển khai, tốc độ nhanh, độ trễ thấp.</li>
+<li>Dữ liệu được gửi theo từng <strong>datagram</strong> độc lập.</li>
+</ul>
+<p>Ví dụ:<br>
+Mỗi gói tin UDP chứa thông tin đích (<code>IP:Port</code>) và dữ liệu → gửi đi ngay, không chờ phản hồi xác nhận.</p>
+<hr>
+<h2 id="2-cơ-chế-hoạt-động-của-udp">2. Cơ chế hoạt động của UDP</h2>
+<p>UDP hoạt động đơn giản hơn TCP vì <strong>không có giai đoạn handshake</strong>. Giao tiếp chỉ bao gồm việc gửi và nhận các <strong>datagram</strong>.</p>
+<h3 id="a-gửi-dữ-liệu">a. Gửi dữ liệu</h3>
+<ul>
+<li>Ứng dụng tạo một <strong>DatagramPacket</strong> chứa dữ liệu và địa chỉ đích.</li>
+<li>Dữ liệu được gửi qua <strong>DatagramSocket.send()</strong>.</li>
+<li>Không cần chờ phản hồi, không xác nhận gói tin có đến nơi hay không.</li>
+</ul>
+<h3 id="b-nhận-dữ-liệu">b. Nhận dữ liệu</h3>
+<ul>
+<li>Ứng dụng lắng nghe qua <strong>DatagramSocket.receive()</strong>.</li>
+<li>Khi có datagram đến, dữ liệu được đọc vào bộ đệm (buffer).</li>
+<li>Mỗi datagram được xử lý độc lập, không có trạng thái phiên.</li>
+</ul>
+<h3 id="c-so-sánh-tcp-vs-udp">c. So sánh TCP vs UDP</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Đặc điểm</th>
+          <th>TCP</th>
+          <th>UDP</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Kết nối</td>
+          <td>Có kết nối (handshake)</td>
+          <td>Không kết nối</td>
+      </tr>
+      <tr>
+          <td>Độ tin cậy</td>
+          <td>Đảm bảo</td>
+          <td>Không đảm bảo</td>
+      </tr>
+      <tr>
+          <td>Thứ tự dữ liệu</td>
+          <td>Có</td>
+          <td>Không</td>
+      </tr>
+      <tr>
+          <td>Tốc độ</td>
+          <td>Chậm hơn</td>
+          <td>Nhanh hơn</td>
+      </tr>
+      <tr>
+          <td>Kiểm soát lỗi</td>
+          <td>Có</td>
+          <td>Giới hạn</td>
+      </tr>
+      <tr>
+          <td>Ứng dụng phù hợp</td>
+          <td>Truyền file, web, chat</td>
+          <td>Game, video, streaming, IoT</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="3-mô-hình-udp-client---server">3. Mô hình UDP Client - Server</h2>
+<p>Vì UDP không có kết nối, <strong>client và server hoạt động độc lập</strong>:</p>
+<ul>
+<li><strong>Server</strong> chỉ cần mở cổng để lắng nghe các gói tin đến.</li>
+<li><strong>Client</strong> gửi trực tiếp gói tin đến địa chỉ server.<br>
+Không có bước xác nhận kết nối.</li>
+</ul>
+<h3 id="quy-trình-tổng-quát">Quy trình tổng quát</h3>
+<table>
+  <thead>
+      <tr>
+          <th>Thành phần</th>
+          <th>Vai trò</th>
+          <th>Phương thức chính</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Server</td>
+          <td>Nhận dữ liệu</td>
+          <td><code>DatagramSocket.receive()</code></td>
+      </tr>
+      <tr>
+          <td>Client</td>
+          <td>Gửi dữ liệu</td>
+          <td><code>DatagramSocket.send()</code></td>
+      </tr>
+      <tr>
+          <td>Cả hai</td>
+          <td>Tạo gói tin</td>
+          <td><code>DatagramPacket</code></td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="4-ví-dụ-lập-trình-udp-socket-với-java">4. Ví dụ lập trình UDP Socket với Java</h2>
+<h3 id="file-udpserverjava">File: <code>UDPServer.java</code></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">import</span> java.io.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.net.*;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UDPServer</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) <span style="color:#66d9ef">throws</span> IOException {
+</span></span><span style="display:flex;"><span>        DatagramSocket serverSocket <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DatagramSocket(5000);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> receiveBuffer <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">byte</span><span style="color:#f92672">[</span>1024<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Server đang chờ dữ liệu...&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span> (<span style="color:#66d9ef">true</span>) {
+</span></span><span style="display:flex;"><span>            DatagramPacket receivePacket <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DatagramPacket(receiveBuffer, receiveBuffer.<span style="color:#a6e22e">length</span>);
+</span></span><span style="display:flex;"><span>            serverSocket.<span style="color:#a6e22e">receive</span>(receivePacket);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            String message <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> String(receivePacket.<span style="color:#a6e22e">getData</span>(), 0, receivePacket.<span style="color:#a6e22e">getLength</span>());
+</span></span><span style="display:flex;"><span>            System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Nhận từ client: &#34;</span> <span style="color:#f92672">+</span> message);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            String reply <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;Server đã nhận: &#34;</span> <span style="color:#f92672">+</span> message;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> sendBuffer <span style="color:#f92672">=</span> reply.<span style="color:#a6e22e">getBytes</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            InetAddress clientAddress <span style="color:#f92672">=</span> receivePacket.<span style="color:#a6e22e">getAddress</span>();
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">int</span> clientPort <span style="color:#f92672">=</span> receivePacket.<span style="color:#a6e22e">getPort</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            DatagramPacket sendPacket <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DatagramPacket(sendBuffer, sendBuffer.<span style="color:#a6e22e">length</span>, clientAddress, clientPort);
+</span></span><span style="display:flex;"><span>            serverSocket.<span style="color:#a6e22e">send</span>(sendPacket);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="file-udpclientjava">File: <code>UDPClient.java</code></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#f92672">import</span> java.io.*;
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> java.net.*;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UDPClient</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(String<span style="color:#f92672">[]</span> args) <span style="color:#66d9ef">throws</span> IOException {
+</span></span><span style="display:flex;"><span>        DatagramSocket clientSocket <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DatagramSocket();
+</span></span><span style="display:flex;"><span>        InetAddress serverAddress <span style="color:#f92672">=</span> InetAddress.<span style="color:#a6e22e">getByName</span>(<span style="color:#e6db74">&#34;localhost&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        BufferedReader input <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> BufferedReader(<span style="color:#66d9ef">new</span> InputStreamReader(System.<span style="color:#a6e22e">in</span>));
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">print</span>(<span style="color:#e6db74">&#34;Nhập tin nhắn gửi server: &#34;</span>);
+</span></span><span style="display:flex;"><span>        String message <span style="color:#f92672">=</span> input.<span style="color:#a6e22e">readLine</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> sendBuffer <span style="color:#f92672">=</span> message.<span style="color:#a6e22e">getBytes</span>();
+</span></span><span style="display:flex;"><span>        DatagramPacket sendPacket <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DatagramPacket(sendBuffer, sendBuffer.<span style="color:#a6e22e">length</span>, serverAddress, 5000);
+</span></span><span style="display:flex;"><span>        clientSocket.<span style="color:#a6e22e">send</span>(sendPacket);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> receiveBuffer <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#66d9ef">byte</span><span style="color:#f92672">[</span>1024<span style="color:#f92672">]</span>;
+</span></span><span style="display:flex;"><span>        DatagramPacket receivePacket <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DatagramPacket(receiveBuffer, receiveBuffer.<span style="color:#a6e22e">length</span>);
+</span></span><span style="display:flex;"><span>        clientSocket.<span style="color:#a6e22e">receive</span>(receivePacket);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        String response <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> String(receivePacket.<span style="color:#a6e22e">getData</span>(), 0, receivePacket.<span style="color:#a6e22e">getLength</span>());
+</span></span><span style="display:flex;"><span>        System.<span style="color:#a6e22e">out</span>.<span style="color:#a6e22e">println</span>(<span style="color:#e6db74">&#34;Phản hồi từ server: &#34;</span> <span style="color:#f92672">+</span> response);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        clientSocket.<span style="color:#a6e22e">close</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="cách-chạy">Cách chạy:</h3>
+<ol>
+<li>Biên dịch:
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>javac UDPServer.java UDPClient.java
+</span></span></code></pre></div></li>
+<li>Chạy server trước:
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>java UDPServer
+</span></span></code></pre></div></li>
+<li>Sau đó chạy client:
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>java UDPClient
+</span></span></code></pre></div></li>
+</ol>
+<hr>
+<h2 id="5-ưu-điểm-và-hạn-chế-của-udp-socket">5. Ưu điểm và hạn chế của UDP Socket</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Ưu điểm</th>
+          <th>Mô tả</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Tốc độ cao</td>
+          <td>Không cần handshake, dữ liệu gửi ngay</td>
+      </tr>
+      <tr>
+          <td>Độ trễ thấp</td>
+          <td>Phù hợp truyền dữ liệu thời gian thực</td>
+      </tr>
+      <tr>
+          <td>Đơn giản</td>
+          <td>Không phải quản lý kết nối phức tạp</td>
+      </tr>
+      <tr>
+          <td>Tiết kiệm tài nguyên</td>
+          <td>Không cần duy trì phiên giữa client và server</td>
+      </tr>
+  </tbody>
+</table>
+<table>
+  <thead>
+      <tr>
+          <th>Hạn chế</th>
+          <th>Mô tả</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Không đảm bảo dữ liệu</td>
+          <td>Gói tin có thể mất, trùng, hoặc sai thứ tự</td>
+      </tr>
+      <tr>
+          <td>Không xác nhận</td>
+          <td>Không có phản hồi xác nhận từ phía nhận</td>
+      </tr>
+      <tr>
+          <td>Không phân đoạn tự động</td>
+          <td>Ứng dụng phải tự chia gói nếu dữ liệu lớn</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="6-ứng-dụng-thực-tế-của-udp-socket">6. Ứng dụng thực tế của UDP Socket</h2>
+<ul>
+<li><strong>Game online thời gian thực</strong> (FPS, MOBA, đối kháng) – cần tốc độ cao.</li>
+<li><strong>Truyền video, âm thanh trực tuyến (streaming)</strong> – mất vài gói tin không đáng kể.</li>
+<li><strong>Voice Chat (VoIP)</strong> – âm thanh liên tục, yêu cầu độ trễ thấp.</li>
+<li><strong>Broadcast trong mạng LAN</strong> – gửi thông báo đến nhiều máy cùng lúc.</li>
+<li><strong>Cảm biến IoT</strong> – gửi dữ liệu nhỏ, định kỳ về server.</li>
+</ul>
+<hr>
+<h2 id="7-khi-nào-nên-chọn-udp-thay-vì-tcp">7. Khi nào nên chọn UDP thay vì TCP?</h2>
+<table>
+  <thead>
+      <tr>
+          <th>Tình huống</th>
+          <th>Giao thức khuyến nghị</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Cần độ tin cậy tuyệt đối (file, ngân hàng, HTTP)</td>
+          <td>TCP</td>
+      </tr>
+      <tr>
+          <td>Cần tốc độ, độ trễ thấp (game, streaming, IoT)</td>
+          <td>UDP</td>
+      </tr>
+      <tr>
+          <td>Dữ liệu nhỏ, không quan trọng thứ tự</td>
+          <td>UDP</td>
+      </tr>
+      <tr>
+          <td>Giao tiếp ngắn, không cần thiết lập phiên</td>
+          <td>UDP</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<h2 id="8-kết-luận">8. Kết luận</h2>
+<p><strong>UDP Socket</strong> mang đến giải pháp truyền dữ liệu nhanh, hiệu quả cho các ứng dụng không yêu cầu độ tin cậy tuyệt đối.<br>
+Hiểu rõ đặc điểm <strong>connectionless</strong>, <strong>không xác nhận</strong>, và <strong>độc lập giữa các gói tin</strong> giúp lập trình viên thiết kế được các hệ thống mạng tối ưu về hiệu suất.</p>
+<p>Trong khi <strong>TCP</strong> phù hợp với các ứng dụng đòi hỏi độ tin cậy cao, thì <strong>UDP</strong> lại là lựa chọn lý tưởng cho các ứng dụng <strong>thời gian thực</strong>, nơi <strong>tốc độ và phản hồi nhanh</strong> là yếu tố ưu tiên hàng đầu.</p>
+<hr>
+<p>Tác giả: Trần Hữu Nhật<br>
+Học phần: Lập trình mạng cơ bản</p>
+
+    </article>
+    
+  </main>
+
+  <footer>
+  <div class="social-links">
+    <a href="https://www.facebook.com/thn.vintage" target="_blank" aria-label="Facebook">
+      <i class="fab fa-facebook"></i>
+    </a>
+    <a href="https://github.com/TranHuuNhat0806" target="_blank" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  
+  
+  <button id="back-to-top" aria-label="Trở về đầu trang">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+</footer>
+
+
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+/>
+
+<script>
+  
+  const backToTopBtn = document.getElementById('back-to-top');
+  
+  
+  window.addEventListener('scroll', () => {
+    if (window.pageYOffset > 300) {
+      backToTopBtn.classList.add('show');
+    } else {
+      backToTopBtn.classList.remove('show');
+    }
+  });
+  
+  
+  backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  });
+</script>
+
+
+</body>
+</html>
